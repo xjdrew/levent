@@ -12,4 +12,6 @@ endif()
 include_directories(${LUA_INCLUDE_DIR})
 add_library(socket SHARED levent/lua-socket.c)
 set_target_properties(socket PROPERTIES PREFIX "")
+set_target_properties(socket PROPERTIES SUFFIX ".so")
+target_link_libraries(socket ${LUA_LIBRARIES})
 
