@@ -1,0 +1,7 @@
+*** Levent
+** build
+```
+cmake .
+make
+```
+
