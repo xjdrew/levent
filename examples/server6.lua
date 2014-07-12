@@ -1,7 +1,7 @@
 local socket = require "socket.c"
-local sock, err = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+local sock, err = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
 assert(sock, errmsg)
-print("bind:", sock:bind("0.0.0.0", 8858))
+print("bind:", sock:bind("", 8858))
 print("listen:", sock:listen())
 
 while true do
