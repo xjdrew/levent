@@ -37,6 +37,7 @@ Module interface:
 
 #define SOCKET_METATABLE "socket_metatable"
 
+/*
 #if !defined(NI_MAXHOST)
 #define NI_MAXHOST 1025
 #endif
@@ -44,6 +45,7 @@ Module interface:
 #if !defined(NI_MAXSERV)
 #define NI_MAXSERV 32
 #endif
+*/
 
 typedef struct _sock_t {
     int fd;
@@ -89,7 +91,18 @@ _getsockaddrlen(socket_t *sock, socklen_t *len) {
 
 static int
 _makeaddr(lua_State *L, struct sockaddr *addr, int addrlen) {
-
+    char ip[NI_MAXHOST];
+    char port[NI_MAXSERV];
+    int err = getnameinfo(addr, addrlen, ip, sizeof(ip), port, sizeof(port), NI_NUMERICHOST | NI_NUMERICSERV);
+    if(err != 0) {
+        lua_pushnil(L);
+        lua_pushinteger(L, err);
+        return 2;
+    }
+    lua_pushstring(L, ip);
+    lua_pushstring(L, port);
+    lua_tonumber(L, -1);
+    return 2;
 }
 
 /*
@@ -185,7 +198,7 @@ _sock_send(lua_State *L) {
     socket_t *sock = _getsock(L, 1);
     size_t len;
     const char* buf = luaL_checklstring(L, 2, &len);
-    int flags = MSG_NOSIGNAL;
+    int flags = 0;
 
     int n = send(sock->fd, buf, len, flags);
     if(n < 0) {
@@ -280,15 +293,14 @@ _sock_getpeername(lua_State *L) {
         return luaL_error(L, "getpeername: bad family(%d)", sock->family);
     }
 
-    struct sockaddr *addr = (struct addr*)lua_newuserdata(L, len);
-    int err = getpeername(sock->fd, addr, len);
+    struct sockaddr *addr = (struct sockaddr*)lua_newuserdata(L, len);
+    int err = getpeername(sock->fd, addr, &len);
     if(err < 0) {
         lua_pushnil(L);
         lua_pushinteger(L, errno);
         return 2;
     }
-    lua_pushlstring(L, addr, len);
-    return 1;
+    return _makeaddr(L, addr, len);
 }
 
 static int
@@ -299,25 +311,24 @@ _sock_getsockname(lua_State *L) {
         return luaL_error(L, "getsockname: bad family(%d)", sock->family);
     }
 
-    struct sockaddr *addr = (struct addr*)lua_newuserdata(L, len);
-    int err = getsockname(sock->fd, addr, len);
+    struct sockaddr *addr = (struct sockaddr*)lua_newuserdata(L, len);
+    int err = getsockname(sock->fd, addr, &len);
     if(err < 0) {
         lua_pushnil(L);
         lua_pushinteger(L, errno);
         return 2;
     }
-    lua_pushlstring(L, (char*)addr, len);
-    return 1;
+    return _makeaddr(L, addr, len);
 }
 
 static int
 _sock_getsockopt(lua_State *L) {
     socket_t *sock = _getsock(L, 1);
     int level = luaL_checkint(L, 2);
-    const char* optname = luaL_checkstring(L, 3);
-    int buflen = luaL_optnumber(L, 4, 0);
+    int optname = luaL_checkint(L, 3);
+    socklen_t buflen = luaL_optunsigned(L, 4, 0);
 
-    if(buflen < 0 || buflen > 1024) {
+    if(buflen > 1024) {
         return luaL_error(L, "getsockopt buflen out of range");
     }
 
@@ -333,7 +344,7 @@ _sock_getsockopt(lua_State *L) {
     } 
     else {
         void *optval = lua_newuserdata(L, buflen);
-        err = getsockopt(sock->fd, level, optname, optval, buflen);
+        err = getsockopt(sock->fd, level, optname, optval, &buflen);
         if(err < 0) {
             goto failed;
         }
@@ -351,11 +362,11 @@ static int
 _sock_setsockopt(lua_State *L) {
     socket_t *sock = _getsock(L, 1);
     int level = luaL_checkint(L, 2);
-    const char* optname = luaL_checkstring(L, 3);
+    int optname = luaL_checkint(L, 3);
     luaL_checkany(L, 4);
 
     const char* buf;
-    int buflen;
+    size_t buflen;
 
     int type = lua_type(L, 4);
     if(type == LUA_TSTRING) {
@@ -404,7 +415,7 @@ _add_int_constant(lua_State *L, const char* name, int value) {
 }
 
 int
-luaopen_sock_c(lua_State *L) {
+luaopen_socket_c(lua_State *L) {
     luaL_checkversion(L);
         
     // +construct socket metatable
@@ -465,6 +476,19 @@ luaopen_sock_c(lua_State *L) {
     _add_int_constant(L, "IPPROTO_TCP", IPPROTO_TCP);
     _add_int_constant(L, "IPPROTO_UDP", IPPROTO_UDP);
 
+    // sock opt
+    _add_int_constant(L, "SOL_SOCKET", SOL_SOCKET);
+
+    _add_int_constant(L, "SO_REUSEADDR", SO_REUSEADDR);
+    _add_int_constant(L, "SO_REUSEPORT", SO_REUSEPORT);
+    _add_int_constant(L, "SO_KEEPALIVE", SO_KEEPALIVE);
+    _add_int_constant(L, "SO_LINGER", SO_LINGER);
+    _add_int_constant(L, "SO_SNDBUF", SO_SNDBUF);
+    _add_int_constant(L, "SO_RCVBUF", SO_RCVBUF);
+    _add_int_constant(L, "SO_NOSIGPIPE", SO_NOSIGPIPE);
+    _add_int_constant(L, "SO_NREAD", SO_NREAD);
+    _add_int_constant(L, "SO_NWRITE", SO_NWRITE);
+    _add_int_constant(L, "SO_LINGER_SEC", SO_LINGER_SEC);
     return 1;
 }
 
