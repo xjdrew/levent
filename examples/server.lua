@@ -20,7 +20,7 @@ while true do
         end
         print("recv:", #msg, "bytes")
         nsend, err = csock:send("you said:" .. msg)
-        if not nsend or nsend == 0 then
+        if not nsend then
             print("send failed:", nsend, err)
             break
         end

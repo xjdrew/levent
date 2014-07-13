@@ -198,27 +198,64 @@ _sock_send(lua_State *L) {
     socket_t *sock = _getsock(L, 1);
     size_t len;
     const char* buf = luaL_checklstring(L, 2, &len);
-    int flags = 0;
 
-    int n = send(sock->fd, buf, len, flags);
-    if(n < 0) {
+    int nwrite = send(sock->fd, buf, len, 0);
+    if(nwrite < 0) {
         lua_pushnil(L);
         lua_pushinteger(L, errno);
         return 2;
     }
-    lua_pushinteger(L, n);
+    lua_pushinteger(L, nwrite);
     return 1;
 }
 
 static int
 _sock_recvfrom(lua_State *L) {
     socket_t *sock = _getsock(L, 1);
-    return 0;
+    size_t len = luaL_checkunsigned(L, 2);
+    socklen_t addr_len;
+    if(!_getsockaddrlen(sock, &addr_len)) {
+        return luaL_error(L, "getpeername: bad family(%d)", sock->family);
+    }
+
+    struct sockaddr *addr = (struct sockaddr*)lua_newuserdata(L, addr_len);
+    char* buf = lua_newuserdata(L, len);
+
+    int nread = recvfrom(sock->fd, buf, len, 0, addr, &addr_len);
+    if(nread < 0) {
+        lua_pushnil(L);
+        lua_pushinteger(L, errno);
+        return 2;
+    }
+    lua_pushlstring(L, buf, nread);
+    return _makeaddr(L, addr, addr_len) + 1;
 }
 
 static int
 _sock_sendto(lua_State *L) {
-    return 0;
+    socket_t *sock = _getsock(L, 1);
+    const char *host = luaL_checkstring(L, 2);
+    luaL_checkint(L, 3);
+    const char *port = lua_tostring(L, 3);
+    size_t len;
+    const char* buf = luaL_checklstring(L, 4, &len);
+
+    struct addrinfo *res = 0;
+    int err = _getsockaddrarg(sock, host, port, &res);
+    if(err != 0) {
+        lua_pushnil(L);
+        lua_pushinteger(L, err);
+        return 1;
+    }
+
+    int nwrite = sendto(sock->fd, buf, len, 0, res->ai_addr, res->ai_addrlen);
+    if(nwrite < 0) {
+        lua_pushnil(L);
+        lua_pushinteger(L, errno);
+        return 2;
+    }
+    lua_pushinteger(L, nwrite);
+    return 1;
 }
 
 static int
