@@ -31,6 +31,7 @@ Module interface:
 #include <sys/socket.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include "lua.h"
 #include "lauxlib.h"
@@ -57,10 +58,21 @@ typedef struct _sock_t {
 /* 
  *   internal function 
  */
-inline static
-socket_t* _getsock(lua_State *L, int index) {
+inline static socket_t* 
+_getsock(lua_State *L, int index) {
     socket_t* sock = (socket_t*)luaL_checkudata(L, index, SOCKET_METATABLE);
     return sock;
+}
+
+static const char*
+_addr2string(struct sockaddr *sa, char *buf, int buflen)
+{
+    const char *s;
+    if (sa->sa_family == AF_INET)
+        s = inet_ntop(sa->sa_family, (const void*) &((struct sockaddr_in*)sa)->sin_addr, buf, buflen);
+    else
+        s = inet_ntop(sa->sa_family, (const void*) &((struct sockaddr_in6*)sa)->sin6_addr, buf, buflen);
+    return s;
 }
 
 static int
@@ -135,6 +147,36 @@ _socket(lua_State *L) {
     sock->family = family;
     sock->type = type;
     sock->protocol = protocol;
+    return 1;
+}
+
+static int
+_resolve(lua_State *L) {
+    const char* host = luaL_checkstring(L, 1);
+    struct addrinfo *res = 0;
+
+    int err = getaddrinfo(host, NULL, NULL, &res);
+    if(err != 0) {
+        lua_pushnil(L);
+        lua_pushinteger(L, err);
+        return 2;
+    }
+
+    int i = 1;
+    char buf[64];
+    lua_newtable(L);
+    while(res) {
+        // ignore all unsupported address
+        if(res->ai_family == AF_INET || res->ai_family == AF_INET6) {
+            lua_createtable(L, 0, 2);
+            lua_pushinteger(L, res->ai_family);
+            lua_setfield(L, -2, "family");
+            lua_pushstring(L, _addr2string(res->ai_addr, buf, sizeof(buf)));
+            lua_setfield(L, -2, "addr");
+            lua_rawseti(L, -2, i++);
+        }
+        res = res->ai_next;
+    }
     return 1;
 }
 
@@ -497,6 +539,7 @@ luaopen_socket_c(lua_State *L) {
 
     luaL_Reg l[] = {
         {"socket", _socket},
+        {"resolve", _resolve},
         {NULL, NULL}
     };
 
