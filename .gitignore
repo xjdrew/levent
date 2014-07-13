@@ -3,3 +3,15 @@ cmake_install.cmake
 CMakeCache.txt
 Makefile
 *.so
+libev/.deps/
+libev/.libs/
+libev/stamp-h1
+libev/config.h
+libev/config.log
+libev/config.status
+libev/ev.lo
+libev/ev.o
+libev/event.lo
+libev/event.o
+libev/libev.la
+libev/libtool

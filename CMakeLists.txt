@@ -12,14 +12,38 @@ if(NOT LUA_FOUND)
     message(FATAL_ERROR "Find lua failed")
 endif()
 
-include_directories(${LUA_INCLUDE_DIR})
+include_directories(${LUA_INCLUDE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/libev)
+link_directories(${CMAKE_CURRENT_SOURCE_DIR}/libev/.libs/)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-	set(CMAKE_SHARED_LINKER_FLAGS "-undefined dynamic_lookup")
+    set(CMAKE_SHARED_LINKER_FLAGS "-undefined dynamic_lookup")
 endif()
 
-add_library(socket SHARED levent/lua-socket.c)
-set_target_properties(socket PROPERTIES PREFIX "")
-set_target_properties(socket PROPERTIES SUFFIX ".so")
-#target_link_libraries(socket ${LUA_LIBRARIES})
+macro (add_lua_library lname)
+    add_library(${lname} SHARED ${ARGN})
+    set_target_properties(${lname} PROPERTIES PREFIX "")
+    set_target_properties(${lname} PROPERTIES SUFFIX ".so")
+endmacro()
+
+# socket
+add_lua_library(socket levent/lua-socket.c)
+
+# libev 
+#set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/libev/Makefile PROPERTIES GENERATED true)
+#add_custom_command (OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/libev/Makefile
+#    COMMAND ./configure --enable-shared=no
+#    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/libev)
+#add_custom_target(ev_makefile SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/libev/Makefile)
+
+add_lua_library(event levent/lua-ev.c)
+#add_dependencies(event ev_makefile)
+set_target_properties(event PROPERTIES IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/libev/.libs/libev.a)
+target_link_libraries(event ev)
+add_custom_command(TARGET event
+    PRE_BUILD
+    COMMAND ./configure --enable-shared=no
+    COMMAND make
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/libev)
+
+
 
