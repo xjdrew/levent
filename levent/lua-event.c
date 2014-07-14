@@ -8,6 +8,19 @@
 #include "ev.h"
 
 #define LOOP_METATABLE "loop_metatable"
+#define WATCHER_METATABLE(type) "watcher_" #type "_metatable"
+
+#define METATABLE_BUILDER_NAME(type) create_metatable_##type
+#define METATABLE_BUILDER(type, name) \
+    static void METATABLE_BUILDER_NAME(type) (lua_State *L) { \
+        luaL_newmetatable(L, name); \
+        luaL_setfuncs(L, mt_##type, 0); \
+        luaL_newlib(L, methods_##type); \
+        lua_setfield(L, -2, "__index"); \
+        lua_pop(L, 1); \
+    }
+
+#define CREATE_METATABLE(type, L) METATABLE_BUILDER_NAME(type)(L)
 
 typedef struct _loop_t {
     struct ev_loop *loop;
@@ -42,6 +55,9 @@ _ev_version(lua_State *L) {
     return 2;
 }
 
+/*
+ * loop function
+ */
 static int
 _default_loop(lua_State *L) {
     unsigned int flags = luaL_optunsigned(L, 1, EVFLAG_AUTO);
@@ -51,7 +67,7 @@ _default_loop(lua_State *L) {
 }
 
 static int
-_loop_new(lua_State *L) {
+_new_loop(lua_State *L) {
     unsigned int flags = luaL_optunsigned(L, 1, EVFLAG_AUTO);
     struct ev_loop *loop = ev_loop_new(flags);
     _setloop(L, loop);
@@ -134,54 +150,147 @@ LOOP_METHOD_VOID(ref)
 LOOP_METHOD_VOID(unref)
 LOOP_METHOD_UNSIGNED(pending_count)
 
-static void
-create_loop_metatables(lua_State *L) {
-    luaL_Reg loop_mt[] = {
-        {"__gc", _loop_destroy},
-        {"__tostring", _loop_tostring},
-        {NULL, NULL}
-    };
+static const luaL_Reg mt_loop[] = {
+    {"__gc", _loop_destroy},
+    {"__tostring", _loop_tostring},
+    {NULL, NULL}
+};
 
-    luaL_Reg loop_methods[] = {
-        {"loop_fork", _loop_fork},
-        {"is_default_loop", _is_default_loop},
-        {"iteration", _iteration},
-        {"depth", _depth},
-        {"backend", _backend},
-        {"suspend", _suspend},
-        {"resume", _resume},
-        //{"run", _run},
-        {"verify", _verify},
+static const luaL_Reg methods_loop[] = {
+    {"loop_fork", _loop_fork},
+    {"is_default_loop", _is_default_loop},
+    {"iteration", _iteration},
+    {"depth", _depth},
+    {"backend", _backend},
+    {"suspend", _suspend},
+    {"resume", _resume},
+    //{"run", _run},
+    {"verify", _verify},
 
-        {"now", _now},
-        {"now_update", _now_update},
-        //{"break", _break},
-        {"ref", _ref},
-        {"unref", _unref},
-        {"pending_count", _pending_count},
+    {"now", _now},
+    {"now_update", _now_update},
+    //{"break", _break},
+    {"ref", _ref},
+    {"unref", _unref},
+    {"pending_count", _pending_count},
 
-        {NULL, NULL}
-    };
+    {NULL, NULL}
+};
 
-    luaL_newmetatable(L, LOOP_METATABLE);
-    luaL_setfuncs(L, loop_mt, 0);
+/*
+ *  end
+ */
 
-    luaL_newlib(L, loop_methods);
-    lua_setfield(L, -2, "__index");
-    lua_pop(L, 1);
+// watcher
+#define WATCHER_NEW(type) \
+    static int _new_##type(lua_State *L) { \
+        ev_##type *w = (ev_##type*)lua_newuserdata(L, sizeof(*w)); \
+        luaL_getmetatable(L, WATCHER_METATABLE(type)); \
+        lua_setmetatable(L, -2); \
+        return 1;\
+    }
+
+#define WATCHER_GET(type) \
+    inline static ev_##type* _get##type(lua_State *L, int index) { \
+        ev_##type *w = (ev_##type*)luaL_checkudata(L, index, WATCHER_METATABLE(type)); \
+        return w; \
+    }
+
+#define WATCHER_TOSTRING(type) \
+    static int _tostring_##type(lua_State *L) { \
+        ev_##type *w = _get##type(L, 1); \
+        lua_pushfstring(L, "%s: %p", #type, w); \
+        return 1; \
+    }
+
+// io
+WATCHER_NEW(io)
+WATCHER_GET(io)
+WATCHER_TOSTRING(io)
+
+static int
+_io_init(lua_State *L) {
+    return 0;
 }
+
+static int
+_io_start(lua_State *L) {
+    return 0;
+}
+static int
+_io_stop(lua_State *L) {
+    return 0;
+}
+
+static const luaL_Reg mt_io[] = {
+    {"__tostring", _tostring_io},
+    {NULL, NULL}
+};
+
+static const luaL_Reg methods_io[] = {
+    {"init", _io_init},
+    {"start", _io_start},
+    {"stop", _io_stop},
+    {NULL, NULL}
+};
+
+// timer
+WATCHER_NEW(timer)
+WATCHER_GET(timer)
+WATCHER_TOSTRING(timer)
+
+static int
+_timer_init(lua_State *L) {
+    return 0;
+}
+
+static int
+_timer_start(lua_State *L) {
+    return 0;
+}
+
+static int
+_timer_stop(lua_State *L) {
+    return 0;
+}
+static int
+_timer_again(lua_State *L) {
+    return 0;
+}
+
+static const luaL_Reg mt_timer[] = {
+    {"__tostring", _tostring_timer},
+    {NULL, NULL}
+};
+
+static const luaL_Reg methods_timer[] = {
+    {"init", _timer_init},
+    {"start", _timer_start},
+    {"stop", _timer_stop},
+    {"again", _timer_again},
+    {NULL, NULL}
+};
+
+// create_metatable_*
+METATABLE_BUILDER(loop, LOOP_METATABLE)
+METATABLE_BUILDER(io, WATCHER_METATABLE(io))
+METATABLE_BUILDER(timer, WATCHER_METATABLE(timer))
 
 int
 luaopen_event_c(lua_State *L) {
     luaL_checkversion(L);
 
-    // create metatable
-    create_loop_metatables(L);
+    // call create metatable
+    CREATE_METATABLE(loop, L);
+    CREATE_METATABLE(io, L);
+    CREATE_METATABLE(timer, L);
 
     luaL_Reg l[] = {
         {"version", _ev_version},
         {"default_loop", _default_loop},
-        {"loop_new", _loop_new},
+        {"new_loop", _new_loop},
+        {"new_io", _new_io},
+        {"new_timer", _new_timer},
         {NULL, NULL}
     };
     luaL_newlib(L, l);
