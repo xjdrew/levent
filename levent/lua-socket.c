@@ -59,7 +59,7 @@ _getsock(lua_State *L, int index) {
     return sock;
 }
 
-static void
+inline static void
 _setsock(lua_State *L, int fd, int family, int type, int protocol) {
 #ifdef SO_NOSIGPIPE
     int on = 1;
@@ -443,7 +443,6 @@ failed:
     lua_pushinteger(L, errno);
     return 2;
 }
-
 
 static int
 _sock_setsockopt(lua_State *L) {
