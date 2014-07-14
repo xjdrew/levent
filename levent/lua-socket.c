@@ -16,11 +16,7 @@ Limitations:
 Module interface:
 - socket.socket(family, type[, proto]) --> new socket object
 - socket.AF_INET, socket.SOCK_STREAM, etc.: constants from <socket.h>
-- an Internet socket address is a pair (hostname, port)
-  where hostname can be anything recognized by gethostbyname()
-  (including the dd.dd.dd.dd notation) and port is in host byte order
-- where a hostname is returned, the dd.dd.dd.dd notation is used
-- a UNIX domain socket address is a string specifying the pathname
+- socket.resolve(hostname), hostname can be anything recognized by getaddrinfo
 */
 
 #include <string.h>
@@ -37,7 +33,6 @@ Module interface:
 #include "lauxlib.h"
 
 #define SOCKET_METATABLE "socket_metatable"
-
 /*
 #if !defined(NI_MAXHOST)
 #define NI_MAXHOST 1025
@@ -62,6 +57,23 @@ inline static socket_t*
 _getsock(lua_State *L, int index) {
     socket_t* sock = (socket_t*)luaL_checkudata(L, index, SOCKET_METATABLE);
     return sock;
+}
+
+static void
+_setsock(lua_State *L, int fd, int family, int type, int protocol) {
+#ifdef SO_NOSIGPIPE
+    int on = 1;
+    setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, (void*)&on, sizeof(on));
+#endif
+
+    socket_t *nsock = (socket_t*) lua_newuserdata(L, sizeof(socket_t));
+    luaL_getmetatable(L, SOCKET_METATABLE);
+    lua_setmetatable(L, -2);
+
+    nsock->fd = fd;
+    nsock->family = family;
+    nsock->type = type;
+    nsock->protocol = protocol;
 }
 
 static const char*
@@ -139,14 +151,7 @@ _socket(lua_State *L) {
         lua_pushinteger(L, errno);
         return 2;
     }
-    socket_t *sock = (socket_t*) lua_newuserdata(L, sizeof(socket_t));
-    luaL_getmetatable(L, SOCKET_METATABLE);
-    lua_setmetatable(L, -2);
-
-    sock->fd = fd;
-    sock->family = family;
-    sock->type = type;
-    sock->protocol = protocol;
+    _setsock(L, fd, family, type, protocol);
     return 1;
 }
 
@@ -240,8 +245,13 @@ _sock_send(lua_State *L) {
     socket_t *sock = _getsock(L, 1);
     size_t len;
     const char* buf = luaL_checklstring(L, 2, &len);
+    int flags = 0;
 
-    int nwrite = send(sock->fd, buf, len, 0);
+#ifdef MSG_NOSIGNAL
+    flags = MSG_NOSIGNAL;
+#endif
+
+    int nwrite = send(sock->fd, buf, len, flags);
     if(nwrite < 0) {
         lua_pushnil(L);
         lua_pushinteger(L, errno);
@@ -281,6 +291,11 @@ _sock_sendto(lua_State *L) {
     const char *port = lua_tostring(L, 3);
     size_t len;
     const char* buf = luaL_checklstring(L, 4, &len);
+    int flags = 0;
+
+#ifdef MSG_NOSIGNAL
+    flags = MSG_NOSIGNAL;
+#endif
 
     struct addrinfo *res = 0;
     int err = _getsockaddrarg(sock, host, port, &res);
@@ -290,7 +305,7 @@ _sock_sendto(lua_State *L) {
         return 1;
     }
 
-    int nwrite = sendto(sock->fd, buf, len, 0, res->ai_addr, res->ai_addrlen);
+    int nwrite = sendto(sock->fd, buf, len, flags, res->ai_addr, res->ai_addrlen);
     if(nwrite < 0) {
         lua_pushnil(L);
         lua_pushinteger(L, errno);
@@ -346,14 +361,7 @@ _sock_accept(lua_State *L) {
         lua_pushinteger(L, errno);
         return 2;
     }
-    socket_t *nsock = (socket_t*) lua_newuserdata(L, sizeof(socket_t));
-    luaL_getmetatable(L, SOCKET_METATABLE);
-    lua_setmetatable(L, -2);
-
-    nsock->fd = fd;
-    nsock->family = sock->family;
-    nsock->type = sock->type;
-    nsock->protocol = sock->protocol;
+    _setsock(L, fd, sock->family, sock->type, sock->protocol);
     return 1;
 }
 
@@ -560,15 +568,25 @@ luaopen_socket_c(lua_State *L) {
     _add_int_constant(L, "SOL_SOCKET", SOL_SOCKET);
 
     _add_int_constant(L, "SO_REUSEADDR", SO_REUSEADDR);
-    _add_int_constant(L, "SO_REUSEPORT", SO_REUSEPORT);
-    _add_int_constant(L, "SO_KEEPALIVE", SO_KEEPALIVE);
     _add_int_constant(L, "SO_LINGER", SO_LINGER);
+    _add_int_constant(L, "SO_KEEPALIVE", SO_KEEPALIVE);
     _add_int_constant(L, "SO_SNDBUF", SO_SNDBUF);
     _add_int_constant(L, "SO_RCVBUF", SO_RCVBUF);
+#ifdef SO_REUSEPORT
+    _add_int_constant(L, "SO_REUSEPORT", SO_REUSEPORT);
+#endif
+#ifdef SO_NOSIGPIPE
     _add_int_constant(L, "SO_NOSIGPIPE", SO_NOSIGPIPE);
+#endif 
+#ifdef SO_NREAD
     _add_int_constant(L, "SO_NREAD", SO_NREAD);
+#endif
+#ifdef SO_NWRITE
     _add_int_constant(L, "SO_NWRITE", SO_NWRITE);
+#endif
+#ifdef SO_LINGER_SEC
     _add_int_constant(L, "SO_LINGER_SEC", SO_LINGER_SEC);
+#endif
     return 1;
 }
 

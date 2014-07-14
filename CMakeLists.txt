@@ -35,13 +35,13 @@ add_lua_library(socket levent/lua-socket.c)
 #    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/libev)
 #add_custom_target(ev_makefile SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/libev/Makefile)
 
-add_lua_library(event levent/lua-ev.c)
+add_lua_library(event levent/lua-event.c)
 #add_dependencies(event ev_makefile)
-set_target_properties(event PROPERTIES IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/libev/.libs/libev.a)
+#set_target_properties(event PROPERTIES IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/libev/.libs/libev.a)
 target_link_libraries(event ev)
 add_custom_command(TARGET event
     PRE_BUILD
-    COMMAND ./configure --enable-shared=no
+    COMMAND CFLAGS=-fPIC ./configure --enable-shared=no
     COMMAND make
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/libev)
 
