@@ -2,6 +2,9 @@
  * author: xjdrew
  * date: 2014-07-13
  */
+#include <assert.h>
+#include <stdio.h>
+
 #include "lua.h"
 #include "lauxlib.h"
 
@@ -9,6 +12,8 @@
 
 #define LOOP_METATABLE "loop_metatable"
 #define WATCHER_METATABLE(type) "watcher_" #type "_metatable"
+
+#define LOG printf
 
 #define METATABLE_BUILDER_NAME(type) create_metatable_##type
 #define METATABLE_BUILDER(type, name) \
@@ -29,7 +34,7 @@ typedef struct loop_t {
 /*
  *    internal function
  */
-inline static loop_t* getloop(lua_State *L, int index) {
+inline static loop_t* get_loop(lua_State *L, int index) {
     loop_t *lo = (loop_t*)luaL_checkudata(L, index, LOOP_METATABLE);
     return lo;
 }
@@ -40,6 +45,43 @@ inline static void setloop(lua_State *L, struct ev_loop *loop) {
     lua_setmetatable(L, -2);
 
     lo->loop = loop;
+}
+
+static int 
+traceback (lua_State *L) {
+	const char *msg = lua_tostring(L, 1);
+	if (msg)
+		luaL_traceback(L, L, msg, 1);
+	else {
+		lua_pushliteral(L, "(no error message)");
+	}
+	return 1;
+}
+
+// *L = ev_userdata(loop)
+// L statck:
+//  -1: trace
+//  -2: ud
+//  -3: lua function
+static void watcher_cb(struct ev_loop *loop, void *w, int revents) {
+    lua_State *L = ev_userdata(loop);
+    int traceback = lua_gettop(L);
+    int r;
+
+    assert(L != NULL);
+    assert(lua_isfunction(L, traceback));
+    lua_pushvalue(L, traceback - 2); // function
+    lua_pushvalue(L, traceback - 1); // ud
+    lua_pushlightuserdata(L, (void*)w);
+    lua_pushinteger(L, revents);
+
+    r = lua_pcall(L, 3, 0, traceback);
+    if(r == LUA_OK) {
+        return;
+    }
+    LOG("watcher(%p) callback failed, errcode:%d, msg: %s", w, r, lua_tostring(L, -1));
+    lua_pop(L, 1);
+    return;
 }
 
 /*
@@ -70,7 +112,7 @@ static int new_loop(lua_State *L) {
 }
 
 static int loop_destroy(lua_State *L) {
-    loop_t *lo = getloop(L, 1);
+    loop_t *lo = get_loop(L, 1);
     struct ev_loop* loop = lo->loop;
     if(loop) {
         lo->loop = 0;
@@ -80,7 +122,7 @@ static int loop_destroy(lua_State *L) {
 }
 
 static int loop_tostring(lua_State *L) {
-    loop_t *lo = getloop(L, 1);
+    loop_t *lo = get_loop(L, 1);
     lua_pushfstring(L, "loop: %p", lo);
     return 1;
 }
@@ -88,7 +130,7 @@ static int loop_tostring(lua_State *L) {
 // void ev_*(loop)
 #define LOOP_METHOD_VOID(name) \
     static int loop_##name(lua_State *L) { \
-        loop_t *lo = getloop(L, 1); \
+        loop_t *lo = get_loop(L, 1); \
         ev_##name(lo->loop); \
         return 0; \
     }
@@ -96,7 +138,7 @@ static int loop_tostring(lua_State *L) {
 // int/unsigned/boolean/number ev_*(loop)
 #define LOOP_METHOD_RET(name, type) \
     static int loop_##name(lua_State *L) { \
-        loop_t *lo = getloop(L, 1); \
+        loop_t *lo = get_loop(L, 1); \
         lua_push##type(L, ev_##name(lo->loop)); \
         return 1; \
     }
@@ -104,7 +146,7 @@ static int loop_tostring(lua_State *L) {
 // void ev_*(loop, arg1)
 #define LOOP_METHOD_VOID_ARG_ARG(name, carg, larg) \
     static int loop_##name(lua_State *L) { \
-        loop_t *lo = getloop(L, 1); \
+        loop_t *lo = get_loop(L, 1); \
         carg a1 = luaL_check##larg(L, 2); \
         ev_##name(lo->loop, a1); \
         return 0; \
@@ -113,7 +155,7 @@ static int loop_tostring(lua_State *L) {
 // int/unsigned/boolean/number ev_*(loop, arg1)
 #define LOOP_METHOD_RET_ARG_ARG(name, type, carg, larg) \
     static int loop_##name(lua_State *L) { \
-        loop_t *lo = getloop(L, 1); \
+        loop_t *lo = get_loop(L, 1); \
         carg a1 = luaL_check##larg(L, 2); \
         lua_push##type(L, ev_##name(lo->loop, a1)); \
         return 1; \
@@ -142,9 +184,21 @@ LOOP_METHOD_VOID(ref)
 LOOP_METHOD_VOID(unref)
 LOOP_METHOD_UNSIGNED(pending_count)
 
+// L statck:
+//  4: ud
+//  3: cb
+//  2: flags
+//  1: loop
 static int loop_run(lua_State *L) {
-    loop_t *lo = getloop(L, 1);
+    if(lua_gettop(L) != 4) {
+        return luaL_error(L, "wrong arguments count, need 4");
+    }
+
+    loop_t *lo = get_loop(L, 1);
     int flags = luaL_checkint(L, 2);
+    luaL_checktype(L, 3, LUA_TFUNCTION);
+    luaL_checkany(L, 4);
+    lua_pushcfunction(L, traceback);
 
     struct ev_loop *loop = lo->loop;
     ev_set_userdata(loop, L);
@@ -172,7 +226,7 @@ static const luaL_Reg methods_loop[] = {
 
     {"now", loop_now},
     {"now_update", loop_now_update},
-    {"break", loop_break},
+    {"_break", loop_break},
     {"ref", loop_ref},
     {"unref", loop_unref},
     {"pending_count", loop_pending_count},
@@ -213,32 +267,71 @@ static const luaL_Reg methods_loop[] = {
         return 1; \
     }
 
-#define WATCHER_IS_ACTIVE(type) 
-#define WATCHER_IS_PENDING(type) 
-#define WATCHER_SET_PRIORITY(type) 
-#define WATCHER_GET_PRIORITY(type) 
+#define WATCHER_START(type) \
+    static int type##_start(lua_State *L) { \
+        ev_##type *w = get_##type(L, 1); \
+        loop_t *lo = get_loop(L, 2); \
+        ev_##type##_start(lo->loop, w); \
+        return 1; \
+    }
+
+#define WATCHER_STOP(type) \
+    static int type##_stop(lua_State *L) { \
+        ev_##type *w = get_##type(L, 1); \
+        loop_t *lo = get_loop(L, 2); \
+        ev_##type##_stop(lo->loop, w); \
+        return 1; \
+    }
+
+#define WATCHER_IS_ACTIVE(type) \
+    static int type##_is_active(lua_State *L) { \
+        ev_##type *w = get_##type(L, 1); \
+        lua_pushboolean(L, ev_is_active(w)); \
+        return 1; \
+    }
+
+#define WATCHER_IS_PENDING(type) \
+    static int type##_is_pending(lua_State *L) { \
+        ev_##type *w = get_##type(L, 1); \
+        lua_pushboolean(L, ev_is_pending(w)); \
+        return 1;\
+    }
+
+#define WATCHER_SET_PRIORITY(type) \
+    static int type##_set_priority(lua_State *L) { \
+        ev_##type *w = get_##type(L, 1); \
+        int priority = luaL_checkint(L, 2); \
+        ev_set_priority(w, priority); \
+        return 0; \
+    }
+
+#define WATCHER_GET_PRIORITY(type) \
+    static int type##_get_priority(lua_State *L) { \
+        ev_##type *w = get_##type(L, 1); \
+        lua_pushinteger(L, ev_priority(w)); \
+        return 1; \
+    }
+
+#define WATCHER_COMMON_METHODS(type) \
+    WATCHER_NEW(type) \
+    WATCHER_GET(type) \
+    WATCHER_TOSTRING(type) \
+    WATCHER_ID(type) \
+    WATCHER_START(type) \
+    WATCHER_STOP(type) \
+    WATCHER_IS_ACTIVE(type) \
+    WATCHER_IS_PENDING(type) \
+    WATCHER_GET_PRIORITY(type) \
+    WATCHER_SET_PRIORITY(type) \
 
 // io
-WATCHER_NEW(io)
-WATCHER_GET(io)
-WATCHER_ID(io)
-WATCHER_TOSTRING(io)
-
-static void io_cb(struct ev_loop *loop, ev_io *w, int revents) {
-    // lua_State *L = ev_userdata(loop);
-}
+WATCHER_COMMON_METHODS(io)
 
 static int io_init(lua_State *L) {
     ev_io *w = get_io(L, 1);
-
-    return 0;
-}
-
-static int io_start(lua_State *L) {
-    return 0;
-}
-
-static int io_stop(lua_State *L) {
+    int fd = luaL_checkint(L, 2);
+    int revents = luaL_checkint(L, 3);
+    ev_io_init(w, watcher_cb, fd, revents);
     return 0;
 }
 
@@ -248,31 +341,28 @@ static const luaL_Reg mt_io[] = {
 };
 
 static const luaL_Reg methods_io[] = {
-    {"init", io_init},
     {"id", io_id},
     {"start", io_start},
     {"stop", io_stop},
+    {"init", io_init},
     {NULL, NULL}
 };
 
 // timer
-WATCHER_NEW(timer)
-WATCHER_GET(timer)
-WATCHER_ID(timer)
-WATCHER_TOSTRING(timer)
+WATCHER_COMMON_METHODS(timer)
 
 static int timer_init(lua_State *L) {
+    ev_timer *w = get_timer(L, 1);
+    int after = luaL_checknumber(L, 2);
+    int repeat = luaL_optnumber(L, 3, 0);
+    ev_timer_init(w, watcher_cb, after, repeat);
     return 0;
 }
 
-static int timer_start(lua_State *L) {
-    return 0;
-}
-
-static int timer_stop(lua_State *L) {
-    return 0;
-}
 static int timer_again(lua_State *L) {
+    ev_timer *w = get_timer(L, 1);
+    loop_t *lo = get_loop(L, 2);
+    ev_timer_again(lo->loop, w);
     return 0;
 }
 

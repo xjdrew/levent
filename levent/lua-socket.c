@@ -428,8 +428,7 @@ _sock_getsockopt(lua_State *L) {
             goto failed;
         }
         lua_pushinteger(L, flag);
-    } 
-    else {
+    } else {
         void *optval = lua_newuserdata(L, buflen);
         err = getsockopt(sock->fd, level, optname, optval, &buflen);
         if(err < 0) {
