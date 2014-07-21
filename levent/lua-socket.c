@@ -229,7 +229,7 @@ static int
 _sock_recv(lua_State *L) {
     socket_t *sock = _getsock(L, 1);
     size_t len = luaL_checkunsigned(L, 2);
-    char* buf = lua_newuserdata(L, len);
+    char buf[len];
     ssize_t nread = recv(sock->fd, buf, len, 0);
     if(nread < 0) {
         lua_pushnil(L);
@@ -271,7 +271,7 @@ _sock_recvfrom(lua_State *L) {
     }
 
     struct sockaddr *addr = (struct sockaddr*)lua_newuserdata(L, addr_len);
-    char* buf = lua_newuserdata(L, len);
+    char buf[len];
 
     int nread = recvfrom(sock->fd, buf, len, 0, addr, &addr_len);
     if(nread < 0) {
