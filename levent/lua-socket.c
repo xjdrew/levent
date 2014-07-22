@@ -245,13 +245,17 @@ _sock_send(lua_State *L) {
     socket_t *sock = _getsock(L, 1);
     size_t len;
     const char* buf = luaL_checklstring(L, 2, &len);
+    size_t from = luaL_optunsigned(L, 3, 0);
     int flags = 0;
-
 #ifdef MSG_NOSIGNAL
     flags = MSG_NOSIGNAL;
 #endif
 
-    int nwrite = send(sock->fd, buf, len, flags);
+    if (len <= from) {
+        return luaL_error(L, "argument #3(%zd) should less than lenght of argument #2(%zd)", from, len);
+    }
+
+    int nwrite = send(sock->fd, buf+from, len - from, flags);
     if(nwrite < 0) {
         lua_pushnil(L);
         lua_pushinteger(L, errno);
@@ -291,11 +295,15 @@ _sock_sendto(lua_State *L) {
     const char *port = lua_tostring(L, 3);
     size_t len;
     const char* buf = luaL_checklstring(L, 4, &len);
+    size_t from = luaL_optunsigned(L, 5, 0);
     int flags = 0;
-
 #ifdef MSG_NOSIGNAL
     flags = MSG_NOSIGNAL;
 #endif
+
+    if (len <= from) {
+        return luaL_error(L, "argument #5(%zd) should less than lenght of argument #4(%zd)", from, len);
+    }
 
     struct addrinfo *res = 0;
     int err = _getsockaddrarg(sock, host, port, &res);
@@ -305,7 +313,7 @@ _sock_sendto(lua_State *L) {
         return 1;
     }
 
-    int nwrite = sendto(sock->fd, buf, len, flags, res->ai_addr, res->ai_addrlen);
+    int nwrite = sendto(sock->fd, buf + from, len - from, flags, res->ai_addr, res->ai_addrlen);
     if(nwrite < 0) {
         lua_pushnil(L);
         lua_pushinteger(L, errno);

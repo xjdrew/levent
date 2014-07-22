@@ -1,6 +1,6 @@
 local Class = require "levent.class"
 
-local Hub = Class()
+local Hub = Class("Hub")
 function Hub:_init()
 end
 

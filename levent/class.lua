@@ -35,9 +35,10 @@ local function _get_init(cls)
     return _init
 end
 
-local function _class(base)
+local function _class(name, base)
     local cls = {}
     cls.__index = cls
+    cls.__name = name
 
     if type(base) == "table" then
         setmetatable(cls, base)

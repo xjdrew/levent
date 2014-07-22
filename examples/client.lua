@@ -4,6 +4,8 @@ assert(sock, err)
 print("connect:", sock:connect("127.0.0.1", 8858))
 print("peer name:", sock:getpeername())
 print("sock name:", sock:getsockname())
-print("send:", sock:send("hello, world!\n"))
+
+local data = "hello, world!\n"
+print("send:", sock:send(data, 100))
 print("recv:", sock:recv(100))
 
