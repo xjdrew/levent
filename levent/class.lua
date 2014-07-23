@@ -54,6 +54,10 @@ local function _class(name, base)
         end
         return obj
     end
+
+    function cls:super()
+        return cls.__base
+    end
     return cls
 end
 

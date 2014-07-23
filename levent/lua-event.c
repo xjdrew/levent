@@ -374,8 +374,7 @@ static const luaL_Reg mt_timer[] = {
 static const luaL_Reg methods_timer[] = {
     {"init", timer_init},
     {"id", timer_id},
-    {"start", timer_start},
-    {"stop", timer_stop},
+    {"start", timer_start}, {"stop", timer_stop},
     {"again", timer_again},
     {NULL, NULL}
 };
@@ -384,6 +383,14 @@ static const luaL_Reg methods_timer[] = {
 METATABLE_BUILDER(loop, LOOP_METATABLE)
 METATABLE_BUILDER(io, WATCHER_METATABLE(io))
 METATABLE_BUILDER(timer, WATCHER_METATABLE(timer))
+
+static void
+_add_unsigned_constant(lua_State *L, const char* name, unsigned int value) {
+    lua_pushunsigned(L, value);
+    lua_setfield(L, -2, name);
+}
+
+#define ADD_CONSTANT(L, name) _add_unsigned_constant(L, #name, name);
 
 int luaopen_event_c(lua_State *L) {
     luaL_checkversion(L);
@@ -402,6 +409,25 @@ int luaopen_event_c(lua_State *L) {
         {NULL, NULL}
     };
     luaL_newlib(L, l);
+
+    // add constant
+    ADD_CONSTANT(L, EV_READ)
+    ADD_CONSTANT(L, EV_READ);
+    ADD_CONSTANT(L, EV_WRITE);
+    ADD_CONSTANT(L, EV_TIMER);
+    ADD_CONSTANT(L, EV_PERIODIC);
+    ADD_CONSTANT(L, EV_SIGNAL);
+    ADD_CONSTANT(L, EV_CHILD);
+    ADD_CONSTANT(L, EV_STAT);
+    ADD_CONSTANT(L, EV_IDLE);
+    ADD_CONSTANT(L, EV_PREPARE);
+    ADD_CONSTANT(L, EV_CHECK);
+    ADD_CONSTANT(L, EV_EMBED);
+    ADD_CONSTANT(L, EV_FORK);
+    ADD_CONSTANT(L, EV_CLEANUP);
+    ADD_CONSTANT(L, EV_ASYNC);
+    ADD_CONSTANT(L, EV_CUSTOM);
+    ADD_CONSTANT(L, EV_ERROR);
     return 1;
 }
 

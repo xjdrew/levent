@@ -1,10 +1,10 @@
 local levent = require "levent.levent"
 
 local io = levent.loop:io(0, 1)
-io:start(function(v)
+io:start(function(revents)
     io:stop()
-    print("in io:", v)
-end, 1328)
+    print("in io:", revents)
+end)
 
 local timer = levent.loop:timer(1,1)
 timer:start(function(v)

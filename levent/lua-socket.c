@@ -502,8 +502,8 @@ _sock_tostring(lua_State *L) {
 
 /* end */
 static void
-_add_int_constant(lua_State *L, const char* name, int value) {
-    lua_pushinteger(L, value);
+_add_unsigned_constant(lua_State *L, const char* name, unsigned int value) {
+    lua_pushunsigned(L, value);
     lua_setfield(L, -2, name);
 }
 
@@ -559,39 +559,39 @@ luaopen_socket_c(lua_State *L) {
 
     luaL_newlib(L, l);
     // address family
-    _add_int_constant(L, "AF_INET", AF_INET);
-    _add_int_constant(L, "AF_INET6", AF_INET6);
+    _add_unsigned_constant(L, "AF_INET", AF_INET);
+    _add_unsigned_constant(L, "AF_INET6", AF_INET6);
 
     // socket type
-    _add_int_constant(L, "SOCK_STREAM", SOCK_STREAM);
-    _add_int_constant(L, "SOCK_DGRAM", SOCK_DGRAM);
+    _add_unsigned_constant(L, "SOCK_STREAM", SOCK_STREAM);
+    _add_unsigned_constant(L, "SOCK_DGRAM", SOCK_DGRAM);
 
     // protocal type
-    _add_int_constant(L, "IPPROTO_TCP", IPPROTO_TCP);
-    _add_int_constant(L, "IPPROTO_UDP", IPPROTO_UDP);
+    _add_unsigned_constant(L, "IPPROTO_TCP", IPPROTO_TCP);
+    _add_unsigned_constant(L, "IPPROTO_UDP", IPPROTO_UDP);
 
     // sock opt
-    _add_int_constant(L, "SOL_SOCKET", SOL_SOCKET);
+    _add_unsigned_constant(L, "SOL_SOCKET", SOL_SOCKET);
 
-    _add_int_constant(L, "SO_REUSEADDR", SO_REUSEADDR);
-    _add_int_constant(L, "SO_LINGER", SO_LINGER);
-    _add_int_constant(L, "SO_KEEPALIVE", SO_KEEPALIVE);
-    _add_int_constant(L, "SO_SNDBUF", SO_SNDBUF);
-    _add_int_constant(L, "SO_RCVBUF", SO_RCVBUF);
+    _add_unsigned_constant(L, "SO_REUSEADDR", SO_REUSEADDR);
+    _add_unsigned_constant(L, "SO_LINGER", SO_LINGER);
+    _add_unsigned_constant(L, "SO_KEEPALIVE", SO_KEEPALIVE);
+    _add_unsigned_constant(L, "SO_SNDBUF", SO_SNDBUF);
+    _add_unsigned_constant(L, "SO_RCVBUF", SO_RCVBUF);
 #ifdef SO_REUSEPORT
-    _add_int_constant(L, "SO_REUSEPORT", SO_REUSEPORT);
+    _add_unsigned_constant(L, "SO_REUSEPORT", SO_REUSEPORT);
 #endif
 #ifdef SO_NOSIGPIPE
-    _add_int_constant(L, "SO_NOSIGPIPE", SO_NOSIGPIPE);
+    _add_unsigned_constant(L, "SO_NOSIGPIPE", SO_NOSIGPIPE);
 #endif 
 #ifdef SO_NREAD
-    _add_int_constant(L, "SO_NREAD", SO_NREAD);
+    _add_unsigned_constant(L, "SO_NREAD", SO_NREAD);
 #endif
 #ifdef SO_NWRITE
-    _add_int_constant(L, "SO_NWRITE", SO_NWRITE);
+    _add_unsigned_constant(L, "SO_NWRITE", SO_NWRITE);
 #endif
 #ifdef SO_LINGER_SEC
-    _add_int_constant(L, "SO_LINGER_SEC", SO_LINGER_SEC);
+    _add_unsigned_constant(L, "SO_LINGER_SEC", SO_LINGER_SEC);
 #endif
     return 1;
 }
