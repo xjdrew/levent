@@ -1,7 +1,7 @@
-local Class = {}
-setmetatable(Class, Class)
+local class = {}
+setmetatable(class, class)
 
-function Class.issubclass(cls1, cls2)
+function class.issubclass(cls1, cls2)
     local tmp = cls1
     while tmp do
         if tmp == cls2 then
@@ -12,7 +12,11 @@ function Class.issubclass(cls1, cls2)
     return false
 end
 
-function Class.isinstance(obj, cls)
+function class.isinstance(obj, cls)
+    if type(obj) ~= "table" then
+        return false
+    end
+
     local tmp = getmetatable(obj)
     while tmp do
         if tmp == cls then
@@ -61,9 +65,9 @@ local function _class(name, base)
     return cls
 end
 
-Class.__call = function(fun, base) 
-    return _class(base)
+class.__call = function(fun, name, base) 
+    return _class(name, base)
 end
 
-return Class
+return class
 

@@ -30,16 +30,20 @@ function handle_client(csock)
     print("Connection close:", csock:getpeername())
 end
 
-local sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-assert(sock:bind("0.0.0.0", 8858) == 0, "bind socket address failed")
-sock:listen()
-
-while true do
-    local csock, err = sock:accept()
-    if not csock then
-        print("accept failed:", err)
-        break
+function start_server()
+    local sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    assert(sock:bind("0.0.0.0", 8858) == 0, "bind socket address failed")
+    sock:listen()
+    while true do
+        local csock, err = sock:accept()
+        if not csock then
+            print("accept failed:", err)
+            break
+        end
+        levent.spawn(handle_client, csock)
     end
-    levent.spawn(handle_client, csock)
 end
+
+levent.spawn(start_server)
+levent.wait()
 

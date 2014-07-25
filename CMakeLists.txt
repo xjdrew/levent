@@ -27,6 +27,8 @@ endmacro()
 
 # socket
 add_lua_library(socket levent/lua-socket.c)
+add_lua_library(errno levent/lua-errno.c)
+add_lua_library(levent levent/lua-levent.c)
 
 # libev 
 #set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/libev/Makefile PROPERTIES GENERATED true)
@@ -44,6 +46,4 @@ add_custom_command(TARGET event
     COMMAND CFLAGS=-fPIC ./configure --enable-shared=no
     COMMAND make
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/libev)
-
-
 

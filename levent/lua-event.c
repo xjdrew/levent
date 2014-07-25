@@ -412,7 +412,6 @@ int luaopen_event_c(lua_State *L) {
 
     // add constant
     ADD_CONSTANT(L, EV_READ)
-    ADD_CONSTANT(L, EV_READ);
     ADD_CONSTANT(L, EV_WRITE);
     ADD_CONSTANT(L, EV_TIMER);
     ADD_CONSTANT(L, EV_PERIODIC);
