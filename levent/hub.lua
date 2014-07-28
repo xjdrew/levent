@@ -1,6 +1,7 @@
+local c         = require "levent.c"
 local class     = require "levent.class"
 local exception = require "levent.exception"
-local c         = require "levent.c"
+local loop      = require "levent.loop"
 
 local BaseException = exception.BaseException
 local unique = c.unique
@@ -15,6 +16,7 @@ function Hub:_init()
     local co, main = getcurrent()
     assert(main, "must in main coroutine")
     self.co = co
+    self.loop = loop.new()
 end
 
 function Hub:yield()
@@ -30,7 +32,17 @@ function Hub:handle_error(co, msg)
     print("error:", co, msg)
 end
 
-local hub = Hub:new()
+function Hub:run()
+    self.loop:run()
+end
+
+local _hub = nil
+local function get_hub()
+    if not __hub then
+        _hub = Hub:new()
+    end
+    return _hub
+end
 
 function Waiter:_init()
     self.co = nil
@@ -43,6 +55,7 @@ function Waiter:switch(value)
         self.value = value
         self.exception = nil
     else
+        local hub = get_hub()
         assert(getcurrent() == hub.co, "must be in hub.co")
         local ok, msg = xpcall(switch, debug.traceback, self.co, value)
         if not ok then
@@ -59,7 +72,7 @@ function Waiter:throw(exception)
         assert(getcurrent() == hub.co, "must be in hub.co")
         local ok, msg = xpcall(switch, debug.traceback, self.co, exception)
         if not ok then
-            hub:handle_error(self.co, msg)
+            get_hub():handle_error(self.co, msg)
         end
     end
 end
@@ -73,14 +86,14 @@ function Waiter:get()
         end
     else
         assert(not self.co, self.co)
-        return hub:switch()
+        return get_hub():switch()
     end
 end
 
 local M = {}
-M.hub = hub
-M.waiter = function()
-    return Waiter:new
+function M.new_waiter()
+    return Waiter:new()
 end
+M.get_hub = get_hub
 return M
 

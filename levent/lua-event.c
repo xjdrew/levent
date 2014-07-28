@@ -324,7 +324,18 @@ static const luaL_Reg methods_loop[] = {
     WATCHER_GET_PRIORITY(type) \
     WATCHER_SET_PRIORITY(type) \
 
-// io
+#define WATCHER_METAMETHOD_ITEM(type, name) {#name, type##_##name}
+#define WATCHER_METAMETHOD_TABLE(type) \
+    WATCHER_METAMETHOD_ITEM(type, id), \
+    WATCHER_METAMETHOD_ITEM(type, start), \
+    WATCHER_METAMETHOD_ITEM(type, stop), \
+    WATCHER_METAMETHOD_ITEM(type, init), \
+    WATCHER_METAMETHOD_ITEM(type, is_active), \
+    WATCHER_METAMETHOD_ITEM(type, is_pending), \
+    WATCHER_METAMETHOD_ITEM(type, get_priority), \
+    WATCHER_METAMETHOD_ITEM(type, set_priority)
+
+// ev_io
 WATCHER_COMMON_METHODS(io)
 
 static int io_init(lua_State *L) {
@@ -341,14 +352,11 @@ static const luaL_Reg mt_io[] = {
 };
 
 static const luaL_Reg methods_io[] = {
-    {"id", io_id},
-    {"start", io_start},
-    {"stop", io_stop},
-    {"init", io_init},
+    WATCHER_METAMETHOD_TABLE(io),
     {NULL, NULL}
 };
 
-// timer
+// ev_timer
 WATCHER_COMMON_METHODS(timer)
 
 static int timer_init(lua_State *L) {
@@ -372,10 +380,85 @@ static const luaL_Reg mt_timer[] = {
 };
 
 static const luaL_Reg methods_timer[] = {
-    {"init", timer_init},
-    {"id", timer_id},
-    {"start", timer_start}, {"stop", timer_stop},
+    WATCHER_METAMETHOD_TABLE(timer),
     {"again", timer_again},
+    {NULL, NULL}
+};
+
+// ev_signal
+WATCHER_COMMON_METHODS(signal)
+
+static int signal_init(lua_State *L) {
+    ev_signal *w = get_signal(L, 1);
+    int signum = luaL_checkint(L, 2);
+    ev_signal_init(w, watcher_cb, signum);
+    return 0;
+}
+
+static const luaL_Reg mt_signal[] = {
+    {"__tostring", signal_tostring},
+    {NULL, NULL}
+};
+
+static const luaL_Reg methods_signal[] = {
+    WATCHER_METAMETHOD_TABLE(signal),
+    {NULL, NULL}
+};
+
+// ev_prepare
+WATCHER_COMMON_METHODS(prepare)
+
+static int prepare_init(lua_State *L) {
+    ev_prepare *w = get_prepare(L, 1);
+    ev_prepare_init(w, watcher_cb);
+    return 0;
+}
+
+static const luaL_Reg mt_prepare[] = {
+    {"__tostring", prepare_tostring},
+    {NULL, NULL}
+};
+
+static const luaL_Reg methods_prepare[] = {
+    WATCHER_METAMETHOD_TABLE(prepare),
+    {NULL, NULL}
+};
+
+// ev_check
+WATCHER_COMMON_METHODS(check)
+
+static int check_init(lua_State *L) {
+    ev_check *w = get_check(L, 1);
+    ev_check_init(w, watcher_cb);
+    return 0;
+}
+
+static const luaL_Reg mt_check[] = {
+    {"__tostring", check_tostring},
+    {NULL, NULL}
+};
+
+static const luaL_Reg methods_check[] = {
+    WATCHER_METAMETHOD_TABLE(check),
+    {NULL, NULL}
+};
+
+// ev_idle
+WATCHER_COMMON_METHODS(idle)
+
+static int idle_init(lua_State *L) {
+    ev_idle *w = get_idle(L, 1);
+    ev_idle_init(w, watcher_cb);
+    return 0;
+}
+
+static const luaL_Reg mt_idle[] = {
+    {"__tostring", idle_tostring},
+    {NULL, NULL}
+};
+
+static const luaL_Reg methods_idle[] = {
+    WATCHER_METAMETHOD_TABLE(idle),
     {NULL, NULL}
 };
 
@@ -383,6 +466,10 @@ static const luaL_Reg methods_timer[] = {
 METATABLE_BUILDER(loop, LOOP_METATABLE)
 METATABLE_BUILDER(io, WATCHER_METATABLE(io))
 METATABLE_BUILDER(timer, WATCHER_METATABLE(timer))
+METATABLE_BUILDER(signal, WATCHER_METATABLE(signal))
+METATABLE_BUILDER(prepare, WATCHER_METATABLE(prepare))
+METATABLE_BUILDER(check, WATCHER_METATABLE(check))
+METATABLE_BUILDER(idle, WATCHER_METATABLE(idle))
 
 static void
 _add_unsigned_constant(lua_State *L, const char* name, unsigned int value) {
@@ -399,6 +486,10 @@ int luaopen_event_c(lua_State *L) {
     CREATE_METATABLE(loop, L);
     CREATE_METATABLE(io, L);
     CREATE_METATABLE(timer, L);
+    CREATE_METATABLE(signal, L);
+    CREATE_METATABLE(prepare, L);
+    CREATE_METATABLE(check, L);
+    CREATE_METATABLE(idle, L);
 
     luaL_Reg l[] = {
         {"version", ev_version},
@@ -406,6 +497,10 @@ int luaopen_event_c(lua_State *L) {
         {"new_loop", new_loop},
         {"new_io", new_io},
         {"new_timer", new_timer},
+        {"new_signal", new_signal},
+        {"new_prepare", new_prepare},
+        {"new_check", new_check},
+        {"new_idle", new_idle},
         {NULL, NULL}
     };
     luaL_newlib(L, l);

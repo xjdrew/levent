@@ -2,9 +2,9 @@ local class = require "levent.class"
 local ev = require "event.c"
 
 local Watcher = class("Watcher")
-function Watcher:_init(loop, ...)
+function Watcher:_init(name, loop, ...)
     self._loop = loop
-    local w = self._new_watcher()
+    local w = ev["new_" .. name]()
     w:init(...)
     self.cobj = w
 
@@ -34,21 +34,37 @@ function Watcher:run_callback(revents)
 end
 
 function Watcher:is_active()
+    return self.cobj:is_active()
 end
 
 function Watcher:is_pending()
+    return self.cobj:is_pending()
 end
 
-local Io = class("Io", Watcher)
-Io._new_watcher = ev.new_io
+function Watcher:get_priority()
+    return self.cobj:get_priority()
+end
 
-local Timer = class("Timer", Watcher)
-Timer._new_watcher = ev.new_timer
+function Watcher:set_priority()
+    return self.cobj:set_priority()
+end
+
+-- register special watcher cls
+local watcher_cls = {
+}
 
 local Loop = class("Loop")
 function Loop:_init()
     self.cobj = ev.default_loop()
     self.watchers = setmetatable({}, {__mode="v"})
+
+    -- register prepare
+    self._callbacks = {}
+    self._prepare = self:_create_watcher("prepare")
+    self._prepare:start(function(revents)
+        self:_run_callback(revents)
+    end)
+    self.cobj:unref()
 end
 
 function Loop:run(nowait, once)
@@ -64,22 +80,33 @@ end
 
 function Loop:_add_watchers(w)
     local mt = getmetatable(w)
+    mt.__tostring = function(self)
+        return tostring(self.cobj)
+    end
+
     mt.__gc = function(self)
         self:stop()
     end
     self.watchers[w:id()] = w
 end
 
-function Loop:io(fd, events)
-    local o = Io:new(self, fd, events)
+function Loop:_create_watcher(name, ...)
+    local cls = watcher_cls[name] or Watcher
+    local o = cls:new(name, self, ...)
     self:_add_watchers(o)
     return o
 end
 
+function Loop:io(fd, events)
+    return self:_create_watcher("io", fd, events)
+end
+
 function Loop:timer(after, rep)
-    local o = Timer:new(self, after, rep)
-    self:_add_watchers(o)
-    return o
+    return self:_create_watcher("timer", after, rep)
+end
+
+function Loop:signal(signum)
+    return self:_create_watcher("signal", signum)
 end
 
 function Loop:callback(id, revents)
@@ -87,15 +114,42 @@ function Loop:callback(id, revents)
     w:run_callback(revents)
 end
 
+function Loop:_run_callback(revents)
+    while #self._callbacks > 0 do
+        local callbacks = self._callbacks
+        self._callbacks = {}
+        for _, cb in ipairs(callbacks) do
+            self.cobj:unref()
+
+            local ok, msg = xpcall(cb, debug.traceback)
+            if not ok then
+                self:handle_error(self._prepare, msg)
+            end
+        end
+    end
+end
+
+function Loop:run_callback(func, ...)
+    local args = {...}
+    self._callbacks[#self._callbacks + 1] = function()
+        func(table.unpack(args))
+    end
+    self.cobj:ref()
+end
+
 function Loop:handle_error(watcher, msg)
     print("error:", watcher, msg)
 end
 
-local loop = Loop:new()
-for k,v in pairs(ev) do
-    if type(v) ~= "function" then
-        loop[k] = v
+local loop = {}
+function loop.new(...)
+    local obj = Loop:new()
+    for k,v in pairs(ev) do
+        if type(v) ~= "function" then
+            obj[k] = v
+        end
     end
+    return obj
 end
 
 return loop

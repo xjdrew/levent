@@ -44,6 +44,5 @@ function start_server()
     end
 end
 
-levent.spawn(start_server)
-levent.wait()
+levent.start(start_server)
 
