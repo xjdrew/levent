@@ -1,9 +1,19 @@
 local class = require "levent.class"
 local ev = require "event.c"
 
+local function callback(func, ...)
+    if select("#", ...) > 0 then
+        local args = {...}
+        return function()
+            func(table.unpack(args))
+        end
+    end
+    return func
+end
+
 local Watcher = class("Watcher")
 function Watcher:_init(name, loop, ...)
-    self._loop = loop
+    self.loop = loop
     local w = ev["new_" .. name]()
     w:init(...)
     self.cobj = w
@@ -15,21 +25,21 @@ function Watcher:id()
     return self.cobj:id()
 end
 
-function Watcher:start(callback)
+function Watcher:start(func, ...)
     assert(self._cb == nil, self.cobj)
-    self._cb = callback
-    self.cobj:start(self._loop.cobj)
+    self._cb = callback(func, ...)
+    self.cobj:start(self.loop.cobj)
 end
 
 function Watcher:stop()
     self._cb = nil
-    self.cobj:stop(self._loop.cobj)
+    self.cobj:stop(self.loop.cobj)
 end
 
 function Watcher:run_callback(revents)
     local ok, msg = xpcall(self._cb, debug.traceback, revents)
     if not ok then
-        self._loop:handle_error(self, msg)
+        self.loop:handle_error(self, msg)
     end
 end
 
@@ -130,10 +140,7 @@ function Loop:_run_callback(revents)
 end
 
 function Loop:run_callback(func, ...)
-    local args = {...}
-    self._callbacks[#self._callbacks + 1] = function()
-        func(table.unpack(args))
-    end
+    self._callbacks[#self._callbacks + 1] = callback(func, ...)
     self.cobj:ref()
 end
 

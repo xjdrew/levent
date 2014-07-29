@@ -1,7 +1,6 @@
-local levent = {}
-local Hub  = require "levent.hub"
+local hub = require "levent.hub"
 
-local hub = Hub.get_hub()
+local levent = {}
 
 local coroutine_pool = {}
 local function co_create(f)
@@ -22,14 +21,41 @@ local function co_create(f)
     return co
 end
 
+function levent.sleep(sec)
+    if sec <= 0 then
+        local waiter = hub:waiter()
+        hub.loop:run_callback(waiter.switch)
+        waiter.get()
+    else
+        hub:wait(hub.loop:timer(sec))
+    end
+end
+
+local function assert_resume(co, ...)
+    local ok, msg = coroutine.resume(co, ...)
+    assert(ok, msg)
+end
+
 function levent.spawn(f, ...)
     local co = co_create(f)
-    hub.loop:run_callback(coroutine.resume, co, ...)
+    hub.loop:run_callback(assert_resume, co, ...)
+end
+
+function levent.wait()
+    hub:run()
 end
 
 function levent.start(f, ...)
     levent.spawn(f, ...)
-    hub:run()
+    levent.wait()
+end
+
+function levent.waiter()
+    return hub:waiter()
+end
+
+function levent.get_hub()
+    return hub
 end
 
 return levent

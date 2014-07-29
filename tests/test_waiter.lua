@@ -1,16 +1,25 @@
 local levent = require "levent.levent"
 
-local waiter = levent.new_waiter()
-local timer  = levent.new_timer(0.1)
-local value = "hello from waiter"
-timer.start(waiter.switch, value)
-assert(waiter.get() == value)
+function t1()
+    local waiter = levent.waiter()
+    local timer  = levent.get_hub().loop:timer(0.1)
+    local value = "hello from waiter"
+    timer:start(waiter.switch, waiter, value)
+    assert(waiter:get() == value)
+    print(value)
+end
 
+function t2()
+    local waiter = levent.waiter()
+    local timer  = levent.get_hub().loop:timer(0.1)
+    local value = "hello from waiter"
+    timer:start(waiter.switch, waiter, value)
+    levent.sleep(0.2)
+    assert(waiter:get() == value)
+    print(value)
+end
 
-local waiter = levent.new_waiter()
-local timer  = levent.new_timer(0.1)
-local value = "hello from waiter"
-timer.start(waiter.switch, value)
-levent.sleep(0.2)
-assert(waiter.get() == value)
+levent.spawn(t1)
+levent.spawn(t2)
+levent.wait()
 
