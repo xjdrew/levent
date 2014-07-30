@@ -128,6 +128,18 @@ _makeaddr(lua_State *L, struct sockaddr *addr, int addrlen) {
     return 2;
 }
 
+inline static int
+_push_result(lua_State *L, int err) {
+    if (err == 0) {
+        lua_pushboolean(L, 1);
+        return 1;
+    } else {
+        lua_pushboolean(L, 0);
+        lua_pushinteger(L, err);
+        return 2;
+    }
+}
+
 /*
  *    end
  */
@@ -214,11 +226,10 @@ _sock_connect(lua_State *L) {
     freeaddrinfo(res);
 
     if(err != 0) {
-        lua_pushinteger(L, errno);
+        return _push_result(L, errno);
     } else {
-        lua_pushinteger(L, err);
+        return _push_result(L, err);
     }
-    return 1;
 }
 
 static int
@@ -335,12 +346,7 @@ _sock_bind(lua_State *L) {
 
     err = bind(sock->fd, res->ai_addr, res->ai_addrlen);
     freeaddrinfo(res);
-    if(err != 0) {
-        lua_pushinteger(L, errno);
-    } else {
-        lua_pushinteger(L, err);
-    }
-    return 1;
+    return _push_result(L, err);
 }
 
 static int
@@ -349,11 +355,10 @@ _sock_listen(lua_State *L) {
     int backlog = luaL_optnumber(L, 2, 5);
     int err = listen(sock->fd, backlog);
     if(err != 0) {
-        lua_pushinteger(L, errno);
+        return _push_result(L, errno);
     } else {
-        lua_pushinteger(L, err);
+        return _push_result(L, err);
     }
-    return 1;
 }
 
 static int

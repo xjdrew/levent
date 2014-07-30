@@ -22,7 +22,7 @@ function handle_client(csock)
         if not msg or #msg == 0 then
             break
         end
-        _, err = _send_all(csock, msg)
+        _, err = csock:send_all(msg)
         if not err then
             break
         end
@@ -31,8 +31,18 @@ function handle_client(csock)
 end
 
 function start_server()
-    local sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    assert(sock:bind("0.0.0.0", 8858) == 0, "bind socket address failed")
+    local sock, errcode = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    if not sock then
+        print("create socket failed:", errcode)
+        return
+    end
+
+    local ok, errcode = sock:bind("0.0.0.0", 8858)
+    if not ok then
+        print("bind socket address failed:", errcode)
+        return
+    end
+
     sock:listen()
     while true do
         local csock, err = sock:accept()

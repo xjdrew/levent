@@ -1,7 +1,6 @@
 local hub = require "levent.hub"
 
 local levent = {}
-
 local coroutine_pool = {}
 local function co_create(f)
     local co = table.remove(coroutine_pool)

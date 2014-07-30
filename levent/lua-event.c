@@ -361,8 +361,8 @@ WATCHER_COMMON_METHODS(timer)
 
 static int timer_init(lua_State *L) {
     ev_timer *w = get_timer(L, 1);
-    int after = luaL_checknumber(L, 2);
-    int repeat = luaL_optnumber(L, 3, 0);
+    double after = luaL_checknumber(L, 2);
+    double repeat = luaL_optnumber(L, 3, 0);
     ev_timer_init(w, watcher_cb, after, repeat);
     return 0;
 }
