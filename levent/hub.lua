@@ -34,6 +34,11 @@ function Hub:wait(watcher)
     end
 end
 
+function Hub:switch(co, value)
+    local waiter = assert(self.waiters[co], co)
+    waiter:switch(value)
+end
+
 function Hub:throw(co, exception)
     local waiter = assert(self.waiters[co], co)
     waiter:throw(exception)
@@ -43,7 +48,7 @@ function Hub:handle_error(co, msg)
     print("error:", co, msg)
 end
 
-function Hub:_switch(waiter)
+function Hub:_yield(waiter)
     local co = coroutine.running()
     assert(not self.waiters[co], co)
     self.waiters[co] = waiter
@@ -89,7 +94,7 @@ end
 function Waiter:get()
     if self.exception == false then
         self.co = coroutine.running()
-        self.hub:_switch(self)
+        self.hub:_yield(self)
     end
 
     if self.exception == nil then

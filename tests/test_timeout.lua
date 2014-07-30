@@ -13,9 +13,13 @@ function t2()
 end
 
 function test()
-    local ok, exception = timeout.run(1, t1, 10)
+    print("----------:1")
+    local ok, exception = timeout.run(1, t1, 15)
+    print(ok, exception)
     assert(not ok)
     print(exception)
+
+    print("----------:2")
     assert(timeout.run(10, t1, 1) == true)
     local ok, exception = pcall(t2)
     assert(not ok)

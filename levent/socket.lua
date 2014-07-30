@@ -1,33 +1,35 @@
-local class = require "levent.class"
-local c     = require "socket.c"
-local errno = require "errno.c"
-local hub   = require "levent.hub"
+local c       = require "socket.c"
+local errno   = require "errno.c"
 
-local function _need_block(err)
-    if err == errno.EWOULDBLOCK or err == errno.EAGAIN then
-        return true
-    end
-    return false
-end
+local class   = require "levent.class"
+local hub     = require "levent.hub"
+local timeout = require "levent.timeout"
 
-local function _wait(watcher, timeout)
-    local timer
-    if timeout and timeout > 0 then
-        timer = 
+local function _wait(watcher, sec)
+    local t
+    if sec and sec > 0 then
+        t = timeout.start_new(timeout)
     end
+
+    local ok, excepiton = pcall(hub.wait, hub, watcher)
+    if t then
+        t:cancel()
+    end
+    return ok, excepiton
 end
 
 local Socket = class("Socket")
 
-function Socket:_init(family, type, protocol, cobj)
-    if sock then
+function Socket:_init(family, _type, protocol, cobj)
+    if cobj then
         assert(type(cobj.fileno) == "function", cobj)
         self.cobj = cobj
     else
-        self.cobj = c.socket(family, type, protocol)
+        self.cobj = c.socket(family, _type, protocol)
     end
 
-    self.cobj:setblocking(0)
+    self.cobj:setblocking(false)
+    local loop = hub.loop
     self._read_event = loop:io(self.cobj:fileno(), loop.EV_READ)
     self._write_event = loop:io(self.cobj:fileno(), loop.EV_WRITE)
     -- timeout
@@ -51,6 +53,7 @@ function Socket:get_timeout()
 end
 
 function Socket:bind(ip, port)
+    self.cobj:setsockopt(c.SOL_SOCKET, c.SO_REUSEADDR, 1)
     return self.cobj:bind(ip, port)
 end
 
@@ -58,23 +61,89 @@ function Socket:listen(backlog)
     return self.cobj:listen(backlog)
 end
 
+function Socket:_need_block(err) 
+    if self.timeout == 0 then
+        return false
+    end
+
+    if err ~= errno.EWOULDBLOCK and err ~= errno.EAGAIN then
+        return false
+    end
+
+    return true
+end
+
 function Socket:accept() 
-    local cobj = self.cobj
     local csock, err
     while true do
-        csock, err = cobj:accept()
+        csock, err = self.cobj:accept()
         if csock then
             break
         end
-        if self.timeout == 0.0 or not _need_block(err) then
-            break
+
+        if not self:_need_block(err) then
+            return nil, err
         end
-        _wait(self._read_event, self.timeout)
+
+        local ok, exception = _wait(self._read_event, self.timeout)
+        if not ok then
+            return nil, exception
+        end
     end
-    if csock then
-        return Socket:new(nil, nil, nil, csock)
-    else
-        return nil, err
+    return Socket:new(nil, nil, nil, csock)
+end
+
+function Socket:getpeername()
+    return self.cobj:getpeername()
+end
+
+function Socket:recv(len)
+    while true do
+        local data, err = self.cobj:recv(len)
+        if data then
+            return data
+        end
+
+        if not self:_need_block(err) then
+            return nil, err
+        end
+
+        local ok, exception = _wait(self._read_event, self.timeout)
+        if not ok then
+            return nil, exception
+        end
+    end
+end
+
+-- from: count from 0
+function Socket:send(data, from)
+    while true do
+        local nwrite, err = self.cobj:send(data, from)
+        if nwrite then
+            return nwrite
+        end
+
+        if not self:_need_block(err) then
+            return nil, err
+        end
+        local ok, exception = _wait(self._write_event, self.timeout)
+        if not ok then
+            return nil, exception
+        end
+    end
+end
+
+-- from: count from 0
+function Socket:sendall(data, from)
+    local from = from or 0
+    local total = #data - from
+    local sent = 0
+    while sent < total do
+        local nwrite, err = self:send(data, from + sent)
+        if not nwrite then
+            return sent, err
+        end
+        sent = sent + nwrite
     end
 end
 

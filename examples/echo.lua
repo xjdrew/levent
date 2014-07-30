@@ -1,19 +1,6 @@
 local levent = require "levent.levent"
 local socket = require "levent.socket"
 
-function _send_all(csock, data)
-    local c = 0
-    while c < #data do
-        local nsend, err = csock:send(data, c)
-        if not nsend then
-            c = c + nsend
-        else
-            return false, err
-        end
-    end
-    return true
-end
-
 function handle_client(csock)
     print("New connection from:", csock:getpeername())
     local msg, err
@@ -22,8 +9,9 @@ function handle_client(csock)
         if not msg or #msg == 0 then
             break
         end
-        _, err = csock:send_all(msg)
-        if not err then
+        _, err = csock:sendall(msg)
+        if err then
+            print("send failed:", err)
             break
         end
     end

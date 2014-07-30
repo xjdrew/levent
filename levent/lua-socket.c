@@ -346,7 +346,11 @@ _sock_bind(lua_State *L) {
 
     err = bind(sock->fd, res->ai_addr, res->ai_addrlen);
     freeaddrinfo(res);
-    return _push_result(L, err);
+    if (err != 0) {
+        return _push_result(L, errno);
+    } else {
+        return _push_result(L, err);
+    }
 }
 
 static int
