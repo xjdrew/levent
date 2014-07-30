@@ -50,4 +50,8 @@ function timeout.run(seconds, func, ...)
     end
 end
 
+function timeout.is_timeout(obj)
+    return class.isinstance(obj, Timeout)
+end
 return timeout
+

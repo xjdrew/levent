@@ -8,7 +8,7 @@ local timeout = require "levent.timeout"
 local function _wait(watcher, sec)
     local t
     if sec and sec > 0 then
-        t = timeout.start_new(timeout)
+        t = timeout.start_new(sec)
     end
 
     local ok, excepiton = pcall(hub.wait, hub, watcher)
@@ -148,6 +148,23 @@ function Socket:sendall(data, from)
 end
 
 function Socket:connect(ip, port)
+    while true do
+        local ok, err = self.cobj:connect(ip, port)
+        if ok then
+            return ok
+        end
+        if self.timeout == 0.0 or err ~= errno.EINPROGRESS then
+            return ok, err
+        end
+        local ok, exception = _wait(self._write_event, self.timeout)
+        if not ok then
+            return nil, exception
+        end
+    end
+end
+
+function Socket:close()
+    self.cobj:close()
 end
 
 local socket = {}

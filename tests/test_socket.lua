@@ -1,11 +1,38 @@
-local socket = require "socket.c"
-for k,v in pairs(socket) do
-	print(k,v)
+local levent = require "levent.levent"
+local socket = require "levent.socket"
+local timeout = require "levent.timeout"
+
+local test_data = "hello"
+function client()
+    local sock, errcode = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    assert(sock, errcode)
+    assert(sock:connect("127.0.0.1", 8859))
+    sock:sendall(test_data)
+    sock:close()
 end
 
-local sock, errmsg = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-print(sock, errmsg)
-print("connect:", sock:connect("127.0.0.1", 8858))
-print("send:", sock:send("hello, world!\n"))
-print("recv:", sock:recv(100))
+function start()
+    local sock, errcode = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    if not sock then
+        print("create socket failed:", errcode)
+        return
+    end
+
+    local ok, errcode = sock:bind("0.0.0.0", 8859)
+    if not ok then
+        print("bind socket address failed:", errcode)
+        return
+    end
+
+    sock:listen()
+    sock:set_timeout(10)
+    levent.spawn(client)
+    local csock, err = sock:accept()
+    local data = csock:recv(1024)
+    print("recv:", data)
+    assert(data == test_data, data)
+    csock:close()
+end
+
+levent.start(start)
 

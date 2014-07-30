@@ -18,7 +18,6 @@ Module interface:
 - socket.AF_INET, socket.SOCK_STREAM, etc.: constants from <socket.h>
 - socket.resolve(hostname), hostname can be anything recognized by getaddrinfo
 */
-
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
@@ -356,7 +355,7 @@ _sock_bind(lua_State *L) {
 static int
 _sock_listen(lua_State *L) {
     socket_t *sock = _getsock(L, 1);
-    int backlog = luaL_optnumber(L, 2, 5);
+    int backlog = luaL_optnumber(L, 2, 256);
     int err = listen(sock->fd, backlog);
     if(err != 0) {
         return _push_result(L, errno);

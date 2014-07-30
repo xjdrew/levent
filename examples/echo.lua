@@ -2,20 +2,27 @@ local levent = require "levent.levent"
 local socket = require "levent.socket"
 
 function handle_client(csock)
-    print("New connection from:", csock:getpeername())
+    local host, port = csock:getpeername()
+    print("New connection from:", host, port)
     local msg, err
     while true do
         msg, err = csock:recv(1024)
         if not msg or #msg == 0 then
+            if msg then
+                print("recv failed1:", #msg, err)
+            else
+                print("recv failed2:", nil, err)
+            end
             break
         end
         _, err = csock:sendall(msg)
         if err then
-            print("send failed:", err)
+            print("send failed3:", err)
             break
         end
     end
-    print("Connection close:", csock:getpeername())
+    csock:close()
+    print("Connection close:", host, port)
 end
 
 function start_server()
