@@ -15,7 +15,7 @@ function handle_client(csock)
             end
             break
         end
-        _, err = csock:sendall(msg)
+        local _, err = csock:sendall(msg)
         if err then
             print("send failed3:", err)
             break
