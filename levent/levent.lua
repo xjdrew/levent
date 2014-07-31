@@ -1,3 +1,7 @@
+--[[
+-- author: xjdrew
+-- date: 2014-07-17
+--]]
 local hub = require "levent.hub"
 
 local levent = {}

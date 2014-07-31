@@ -4,6 +4,11 @@
 #include "lua.h"
 #include "lauxlib.h"
 
+/* for compatible with lua5.1 */
+#ifndef LUA_OK
+#define LUA_OK 0
+#endif
+
 inline static void
 _add_unsigned_constant(lua_State *L, const char* name, unsigned int value) {
     lua_pushunsigned(L, value);

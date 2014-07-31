@@ -5,9 +5,7 @@
 #include <assert.h>
 #include <stdio.h>
 
-#include "lua.h"
-#include "lauxlib.h"
-
+#include "levent.h"
 #include "ev.h"
 
 #define LOOP_METATABLE "loop_metatable"
@@ -470,14 +468,6 @@ METATABLE_BUILDER(signal, WATCHER_METATABLE(signal))
 METATABLE_BUILDER(prepare, WATCHER_METATABLE(prepare))
 METATABLE_BUILDER(check, WATCHER_METATABLE(check))
 METATABLE_BUILDER(idle, WATCHER_METATABLE(idle))
-
-static void
-_add_unsigned_constant(lua_State *L, const char* name, unsigned int value) {
-    lua_pushunsigned(L, value);
-    lua_setfield(L, -2, name);
-}
-
-#define ADD_CONSTANT(L, name) _add_unsigned_constant(L, #name, name);
 
 int luaopen_event_c(lua_State *L) {
     luaL_checkversion(L);
