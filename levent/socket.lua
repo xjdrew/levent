@@ -1,3 +1,8 @@
+--[[
+-- author: xjdrew
+-- date: 2014-07-17
+--]]
+
 local c       = require "socket.c"
 local errno   = require "errno.c"
 
@@ -93,13 +98,9 @@ function Socket:accept()
     return Socket:new(nil, nil, nil, csock)
 end
 
-function Socket:getpeername()
-    return self.cobj:getpeername()
-end
-
-function Socket:recv(len)
+function Socket:_recv(func, ...)
     while true do
-        local data, err = self.cobj:recv(len)
+        local data, err = func(self.cobj, ...)
         if data then
             return data
         end
@@ -115,10 +116,19 @@ function Socket:recv(len)
     end
 end
 
--- from: count from 0
-function Socket:send(data, from)
+-- args:len
+function Socket:recvfrom(len)
+    return self:_recv(self.cobj.recvfrom, len)
+end
+
+-- args: len
+function Socket:recv(len)
+    return self:_recv(self.cobj.recv, len) 
+end
+
+function Socket:_send(func, ...)
     while true do
-        local nwrite, err = self.cobj:send(data, from)
+        local nwrite, err = func(self.cobj, ...)
         if nwrite then
             return nwrite
         end
@@ -131,6 +141,17 @@ function Socket:send(data, from)
             return nil, exception
         end
     end
+end
+
+-- args: data, from
+-- from: count from 0
+function Socket:send(data, from)
+    return self:_send(self.cobj.send, data, from)
+end
+
+-- args: 
+function Socket:sendto(ip, port, data, from)
+    return self:_send(self.cobj.sendto, ip, port, data, from)
 end
 
 -- from: count from 0
@@ -158,6 +179,26 @@ function Socket:connect(ip, port)
         end
         return _wait(self._write_event, self.timeout)
     end
+end
+
+function Socket:fileno()
+    return self.cobj:fileno()
+end
+
+function Socket:getpeername()
+    return self.cobj:getpeername()
+end
+
+function Socket:getsockname()
+    return self.cobj:getsockname()
+end
+
+function Socket:getsockopt(level, optname, buflen)
+    return self.cobj:getsockopt(level, optname, buflen)
+end
+
+function Socket:setsockopt(level, optname, value)
+    return self.cobj:setsockopt(level, optname, value)
 end
 
 function Socket:close()

@@ -21,9 +21,23 @@ function test()
 
     print("----------:2")
     assert(timeout.run(10, t1, 1) == true)
+
+    print("----------:3")
     local ok, exception = pcall(t2)
     assert(not ok)
     print(exception)
+
+    print("----------:4")
+    print(timeout.run(5, function()
+        return timeout.run(2, t1, 5)
+    end))
+
+    print("----------:5")
+    print(timeout.run(2, function()
+        return timeout.run(5, t1, 10)
+    end))
+
+    levent.sleep(20)
 end
 
 levent.start(test)
