@@ -8,6 +8,8 @@
 #include "lua.h"
 #include "lauxlib.h"
 
+#define LUA_OK 0
+
 #include "ev.h"
 
 #define LOOP_METATABLE "loop_metatable"
