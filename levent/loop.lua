@@ -102,7 +102,7 @@ end
 
 function Loop:_create_watcher(name, ...)
     local cls = watcher_cls[name] or Watcher
-    local o = cls:new(name, self, ...)
+    local o = cls.new(name, self, ...)
     self:_add_watchers(o)
     return o
 end
@@ -150,7 +150,7 @@ end
 
 local loop = {}
 function loop.new(...)
-    local obj = Loop:new()
+    local obj = Loop.new()
     for k,v in pairs(ev) do
         if type(v) ~= "function" then
             obj[k] = v

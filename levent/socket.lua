@@ -95,7 +95,7 @@ function Socket:accept()
             return nil, exception
         end
     end
-    return Socket:new(nil, nil, nil, csock)
+    return Socket.new(nil, nil, nil, csock)
 end
 
 function Socket:_recv(func, ...)
@@ -213,7 +213,7 @@ for k,v in pairs(c) do
 end
 
 function socket.socket(family, type, protocol)
-    return Socket:new(family, type, protocol)
+    return Socket.new(family, type, protocol)
 end
 
 return socket

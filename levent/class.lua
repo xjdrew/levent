@@ -1,3 +1,5 @@
+local c = require "levent.c"
+
 local class = {}
 setmetatable(class, class)
 
@@ -49,7 +51,7 @@ local function _class(name, base)
         cls.__base = base
     end
 
-    function cls:new(...)
+    function cls.new(...)
         local obj = {}
         setmetatable(obj, cls)
         local _init = _get_init(cls)
@@ -57,6 +59,10 @@ local function _class(name, base)
             _init(obj, ...)
         end
         return obj
+    end
+
+    function cls:__tostring()
+        return string.format("%s: 0x%x", (cls.__name or "object"), c.topointer(self))
     end
 
     function cls:super()

@@ -27,8 +27,8 @@ end
 function levent.sleep(sec)
     if sec <= 0 then
         local waiter = hub:waiter()
-        hub.loop:run_callback(waiter.switch)
-        waiter.get()
+        hub.loop:run_callback(waiter.switch, waiter)
+        waiter:get()
     else
         hub:wait(hub.loop:timer(sec))
     end

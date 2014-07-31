@@ -6,7 +6,7 @@ local loop      = require "levent.loop"
 local BaseException = exception.BaseException
 local unique = c.unique
 
-local Waiter = class()
+local Waiter = class("Waiter")
 local Hub = class("Hub")
 
 function Hub:_init()
@@ -18,7 +18,7 @@ function Hub:_init()
 end
 
 function Hub:waiter()
-    return Waiter:new(self)
+    return Waiter.new(self)
 end
 
 function Hub:wait(watcher)
@@ -104,6 +104,6 @@ function Waiter:get()
     end
 end
 
-local hub = Hub:new()
+local hub = Hub.new()
 return hub
 

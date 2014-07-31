@@ -35,9 +35,9 @@ function C:__tostring()
 end
 
 
-local a = A:new(8)
-local b = B:new()
-local c = C:new(10)
+local a = A.new(8)
+local b = B.new()
+local c = C.new(10)
 
 assert(times == 2, times)
 
