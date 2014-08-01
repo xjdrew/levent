@@ -7,4 +7,8 @@ end
 
 local all = {}
 all.BaseException = BaseException
+function all.is_exception(exception)
+    return class.isinstance(exception, BaseException)
+end
 return all
+

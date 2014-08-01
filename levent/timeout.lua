@@ -1,8 +1,8 @@
-local hub       = require "levent.hub"
-local class     = require "levent.class"
-local exception = require "levent.exception"
+local hub        = require "levent.hub"
+local class      = require "levent.class"
+local exceptions = require "levent.exceptions"
 
-local Timeout = class("TimeoutException", exception.BaseException)
+local Timeout = class("TimeoutException", exceptions.BaseException)
 
 function Timeout:_init(seconds)
     self.seconds = seconds

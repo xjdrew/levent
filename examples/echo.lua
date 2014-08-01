@@ -8,11 +8,7 @@ function handle_client(csock)
     while true do
         msg, err = csock:recv(1024)
         if not msg or #msg == 0 then
-            if msg then
-                print("recv failed1:", #msg, err)
-            else
-                print("recv failed2:", nil, err)
-            end
+            print("recv failed:", #msg, err)
             break
         end
         local _, err = csock:sendall(msg)
@@ -49,5 +45,7 @@ function start_server()
     end
 end
 
+-- pre-launch 10000 coroutines 
+-- levent.check_coroutine(10000)
 levent.start(start_server)
 

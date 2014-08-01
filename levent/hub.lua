@@ -1,9 +1,8 @@
-local c         = require "levent.c"
-local class     = require "levent.class"
-local exception = require "levent.exception"
-local loop      = require "levent.loop"
+local c          = require "levent.c"
+local class      = require "levent.class"
+local exceptions = require "levent.exceptions"
+local loop       = require "levent.loop"
 
-local BaseException = exception.BaseException
 local unique = c.unique
 
 local Waiter = class("Waiter")
@@ -87,7 +86,7 @@ function Waiter:switch(value)
 end
 
 function Waiter:throw(exception)
-    assert(class.isinstance(exception, BaseException), exception)
+    assert(exceptions.is_exception(exception), exception)
     self:_switch(nil, exception)
 end
 

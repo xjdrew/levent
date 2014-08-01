@@ -2,9 +2,11 @@
 -- author: xjdrew
 -- date: 2014-07-31
 --]]
-local class   = require "levent.class"
-local hub     = require "levent.hub"
-local timeout = require "levent.timeout"
+
+local class      = require "levent.class"
+local hub        = require "levent.hub"
+local timeout    = require "levent.timeout"
+local exceptions = require "levent.exceptions"
 
 --[[
 -- A synchronization primitive that allows one coroutine to wake up one or more others.
@@ -68,6 +70,58 @@ end
 -- A one-time event that stores a value or an exception.
 --]]
 local AsyncResult = class("AsyncResult")
+function AsyncResult:_init()
+    self.links = {}
+    self.value = nil
+    self.exception = false
+end
+
+function AsyncResult:_set(val, exception)
+    assert(self.exception == false, "repeated set result")
+    self.value = val
+    self.exception = exception
+    hub.loop:run_callback(self._notify, self)
+end
+
+function AsyncResult:set(val)
+    self:_set(val, nil)
+end
+
+function AsyncResult:set_exception(exception)
+    assert(exceptions.is_exception(exception), exception)
+    self:_set(nil, exception)
+end
+
+function AsyncResult:get(sec)
+    if self.exception == false then
+        local t = timeout.start_new(sec)
+        local waiter = hub:waiter()
+        self.links[waiter] = true
+        local ok, val = pcall(waiter.get, waiter)
+        self.links[waiter] = nil
+        t:cancel()
+        if not ok then
+            error(val)
+        end
+    end
+
+    if self.exception then
+        error(self.exception)
+    else
+        return self.value
+    end
+end
+
+function AsyncResult:_notify()
+    while true do
+        local waiter = next(self.links)
+        if not waiter then
+            break
+        end
+        self.links[waiter] = nil
+        waiter:switch(true)
+    end
+end
 
 local event = {}
 event.event = Event.new

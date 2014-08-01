@@ -258,7 +258,7 @@ _sock_send(lua_State *L) {
 #endif
 
     if (len <= from) {
-        return luaL_error(L, "argument #3(%zd) should less than lenght of argument #2(%zd)", from, len);
+        return luaL_argerror(L, 3, "should be less than length of argument #2");
     }
 
     int nwrite = send(sock->fd, buf+from, len - from, flags);
@@ -308,7 +308,7 @@ _sock_sendto(lua_State *L) {
 #endif
 
     if (len <= from) {
-        return luaL_error(L, "argument #5(%zd) should less than lenght of argument #4(%zd)", from, len);
+        return luaL_argerror(L, 5, "should be less than length of argument #4");
     }
 
     struct addrinfo *res = 0;

@@ -2,27 +2,10 @@
 -- author: xjdrew
 -- date: 2014-07-17
 --]]
-local hub = require "levent.hub"
+local hub        = require "levent.hub"
+local coroutines = require "levent.coroutines"
 
 local levent = {}
-local coroutine_pool = {}
-local function co_create(f)
-    local co = table.remove(coroutine_pool)
-    if co == nil then
-        co = coroutine.create(function(...)
-            f(...)
-            while true do
-                f = nil
-                coroutine_pool[#coroutine_pool + 1] = co
-                f = coroutine.yield()
-                f(coroutine.yield())
-            end
-        end)
-    else
-        coroutine.resume(co, f)
-    end
-    return co
-end
 
 function levent.sleep(sec)
     if sec <= 0 then
@@ -39,8 +22,32 @@ local function assert_resume(co, ...)
     assert(ok, msg)
 end
 
+local stats = {
+    running = coroutines.running,
+    cached = coroutines.cached,
+    total = coroutines.total
+}
+
+function levent.stats(item)
+    if item == "all" then
+        local t = {}
+        for k,f in pairs(stats) do
+            t[k] = f()
+        end
+        return t
+    end
+
+    local f = stats[item]
+    if f then
+        return f()
+    end
+    return nil
+end
+
+levent.check_coroutine = coroutines.check
+
 function levent.spawn(f, ...)
-    local co = co_create(f)
+    local co = coroutines.create(f)
     hub.loop:run_callback(assert_resume, co, ...)
 end
 
