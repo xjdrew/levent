@@ -8,7 +8,9 @@
 #include "lua.h"
 #include "lauxlib.h"
 
+#ifndef LUA_OK
 #define LUA_OK 0
+#endif
 
 #include "ev.h"
 
