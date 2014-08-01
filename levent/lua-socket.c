@@ -277,7 +277,7 @@ _sock_recvfrom(lua_State *L) {
     size_t len = luaL_checkunsigned(L, 2);
     socklen_t addr_len;
     if(!_getsockaddrlen(sock, &addr_len)) {
-        return luaL_error(L, "getpeername: bad family(%d)", sock->family);
+        return luaL_argerror(L, 1, "bad family");
     }
 
     struct sockaddr *addr = (struct sockaddr*)lua_newuserdata(L, addr_len);
@@ -389,7 +389,7 @@ _sock_getpeername(lua_State *L) {
     socket_t *sock = _getsock(L, 1);
     socklen_t len;
     if(!_getsockaddrlen(sock, &len)) {
-        return luaL_error(L, "getpeername: bad family(%d)", sock->family);
+        return luaL_argerror(L, 1, "bad family");
     }
 
     struct sockaddr *addr = (struct sockaddr*)lua_newuserdata(L, len);
@@ -407,7 +407,7 @@ _sock_getsockname(lua_State *L) {
     socket_t *sock = _getsock(L, 1);
     socklen_t len;
     if(!_getsockaddrlen(sock, &len)) {
-        return luaL_error(L, "getsockname: bad family(%d)", sock->family);
+        return luaL_argerror(L, 1, "bad family(%d)");
     }
 
     struct sockaddr *addr = (struct sockaddr*)lua_newuserdata(L, len);
@@ -428,7 +428,7 @@ _sock_getsockopt(lua_State *L) {
     socklen_t buflen = luaL_optunsigned(L, 4, 0);
 
     if(buflen > 1024) {
-        return luaL_error(L, "getsockopt buflen out of range");
+        return luaL_argerror(L, 4, "should less than 1024");
     }
 
     int err;
@@ -473,7 +473,7 @@ _sock_setsockopt(lua_State *L) {
         buf = (const char*)&flag;
         buflen = sizeof(flag);
     } else {
-        return luaL_error(L, "setsockopt: unsupported arg 4 type");
+        return luaL_argerror(L, 4, "unsupported type");
     }
 
     int err = setsockopt(sock->fd, level, optname, buf, buflen);

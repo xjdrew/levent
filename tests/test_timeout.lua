@@ -37,7 +37,7 @@ function test()
         return timeout.run(5, t1, 10)
     end))
 
-    levent.sleep(20)
+    levent.sleep(5)
 end
 
 levent.start(test)
