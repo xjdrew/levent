@@ -6,6 +6,7 @@ Features include:
 
 * Fast event loop based on [libev](http://libev.schmorp.de/).
 * Cooperative socket library
+* Cooperative dns client by pure lua
 * Similar api and components with gevent but with much more simpler implementation and better performance.
 
 levent is licensed under MIT license.
