@@ -2,8 +2,8 @@
  * author: xjdrew
  * date: 2014-07-24
  */
-#include <errno.h>
 #include <string.h>
+#include <errno.h>
 
 #include "levent.h"
 
@@ -29,6 +29,7 @@ int luaopen_errno_c(lua_State *L) {
     ADD_CONSTANT(L, EAGAIN);
     ADD_CONSTANT(L, EISCONN);
     ADD_CONSTANT(L, EBADF);
+
     return 1;
 }
 

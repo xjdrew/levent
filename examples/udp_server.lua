@@ -10,7 +10,8 @@ while true do
         break
     end
     print("recv msg from:", string.format("%s:%d",peer_addr, peer_port), "len:", #msg)
-    local nsend, err = sock:sendto(peer_addr, peer_port, "you said:" .. msg)
+    local response = string.rep(msg, 1000)
+    local nsend, err = sock:sendto(peer_addr, peer_port, response)
     if not nsend then
         print("send failed:", nsend, err)
         break

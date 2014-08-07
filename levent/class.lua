@@ -1,3 +1,7 @@
+--[[
+-- author: xjdrew
+-- date: 2014-07-17
+--]]
 local c = require "levent.c"
 
 local class = {}

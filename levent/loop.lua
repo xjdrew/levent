@@ -81,7 +81,15 @@ function Loop:run(nowait, once)
     self.cobj:run(0, self.callback, self)
 end
 
+function Loop:_break(how)
+    if not how then
+        how = ev.EVBREAK_ALL
+    end
+    self.cobj:_break(how)
+end
+
 function Loop:verify()
+    return self.cobj:verify()
 end
 
 function Loop:now()

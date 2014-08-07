@@ -59,6 +59,10 @@ function Hub:run()
     self.loop:run()
 end
 
+function Hub:exit()
+    self.loop:_break()
+end
+
 -- Waiter metamethods
 function Waiter:_init(hub)
     self.hub = hub

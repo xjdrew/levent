@@ -7,6 +7,10 @@ local coroutines = require "levent.coroutines"
 
 local levent = {}
 
+function levent.now()
+    return hub.loop:now()
+end
+
 function levent.sleep(sec)
     if sec <= 0 then
         local waiter = hub:waiter()
@@ -51,13 +55,13 @@ function levent.spawn(f, ...)
     hub.loop:run_callback(assert_resume, co, ...)
 end
 
-function levent.wait()
+function levent.start(f, ...)
+    levent.spawn(f, ...)
     hub:run()
 end
 
-function levent.start(f, ...)
-    levent.spawn(f, ...)
-    levent.wait()
+function levent.exit()
+    hub:exit()
 end
 
 function levent.waiter()

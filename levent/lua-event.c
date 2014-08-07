@@ -512,6 +512,11 @@ int luaopen_event_c(lua_State *L) {
     ADD_CONSTANT(L, EV_ASYNC);
     ADD_CONSTANT(L, EV_CUSTOM);
     ADD_CONSTANT(L, EV_ERROR);
+
+    // break
+    ADD_CONSTANT(L, EVBREAK_ONE);
+    ADD_CONSTANT(L, EVBREAK_ALL);
+
     return 1;
 }
 

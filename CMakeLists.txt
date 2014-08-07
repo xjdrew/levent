@@ -29,6 +29,7 @@ endmacro()
 add_lua_library(socket levent/lua-socket.c)
 add_lua_library(errno levent/lua-errno.c)
 add_lua_library(levent levent/lua-levent.c)
+add_lua_library(struct deps/struct/struct.c)
 
 # libev 
 #set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/libev/Makefile PROPERTIES GENERATED true)

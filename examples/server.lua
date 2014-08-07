@@ -19,7 +19,8 @@ while true do
             break
         end
         print("recv:", #msg, "bytes")
-        nsend, err = csock:send("you said:" .. msg)
+        local response = string.rep(msg, 10000)
+        nsend, err = csock:send(response)
         if not nsend then
             print("send failed:", nsend, err)
             break
