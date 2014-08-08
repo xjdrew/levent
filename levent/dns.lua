@@ -200,8 +200,7 @@ local function unpack_rdata(qtype, chunk)
 end
 
 local dns = {}
---local server = "8.8.8.8"
-local server = "172.16.100.200"
+local server = "8.8.8.8"
 local port = 53
 
 local function exception(info)
