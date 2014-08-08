@@ -1,11 +1,11 @@
 local levent     = require "levent.levent"
-local event      = require "levent.event"
+local lock       = require "levent.lock"
 local exceptions = require "levent.exceptions"
 
-local e = event.event()
-local as1 = event.async_result()
-local as2 = event.async_result()
-local as3 = event.async_result()
+local e = lock.event()
+local as1 = lock.async_result()
+local as2 = lock.async_result()
+local as3 = lock.async_result()
 
 function dump_stats()
     local t = levent.stats("all")

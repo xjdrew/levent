@@ -42,9 +42,10 @@ function Event:wait(sec)
         return self.flag
     end
 
-    local t = timeout.start_new(sec)
     local waiter = hub:waiter()
     self.links[waiter] = true
+
+    local t = timeout.start_new(sec)
     local ok, val = pcall(waiter.get, waiter)
     self.links[waiter] = nil
     t:cancel()
@@ -118,13 +119,12 @@ function AsyncResult:_notify()
         if not waiter then
             break
         end
-        self.links[waiter] = nil
         waiter:switch(true)
     end
 end
 
-local event = {}
-event.event = Event.new
-event.async_result = AsyncResult.new
-return event
+local lock = {}
+lock.event = Event.new
+lock.async_result = AsyncResult.new
+return lock
 
