@@ -1,7 +1,9 @@
 --[[
 -- author: xjdrew
 -- date: 2014-08-06
--- lua dns lookup library, conform  to rfc1035: http://tools.ietf.org/html/rfc1035
+-- lua dns resolver library
+-- conform to rfc1035 (http://tools.ietf.org/html/rfc1035)
+-- support ipv6, conform to rfc1886(http://tools.ietf.org/html/rfc1886), rfc2874(http://tools.ietf.org/html/rfc2874)
 --]]
 
 -- [[
@@ -23,6 +25,7 @@
 -- MINFO           14 mailbox or mail list information
 -- MX              15 mail exchange
 -- TXT             16 text strings
+-- AAAA            28 a ipv6 host address
 -- only appear in the question section:
 -- AXFR            252 A request for a transfer of an entire zone
 -- MAILB           253 A request for mailbox-related records (MB, MG or MR)
@@ -77,6 +80,8 @@ local DNS_HEADER_LEN = 12
 
 local QTYPE = {
     A = 1,
+    CNAME = 5,
+    AAAA = 28,
 }
 
 local QCLASS = {
@@ -182,13 +187,21 @@ local function unpack_answer(chunk, left)
 end
 
 -- a 32bit internet address
-local function unpack_a_rdata(chunk)
-    local a,b,c,d = struct.unpack("BBBB", chunk)
-    return string.format("%d.%d.%d.%d", a,b,c,d)
+local function unpack_rdata(qtype, chunk)
+    if qtype == QTYPE.A then
+        local a,b,c,d = struct.unpack("BBBB", chunk)
+        return string.format("%d.%d.%d.%d", a,b,c,d)
+    elseif qtype == QTYPE.AAAA then
+        local a,b,c,d,e,f,g,h = struct.unpack(">HHHHHHHH", chunk)
+        return string.format("%x:%x:%x:%x:%x:%x:%x:%x", a, b, c, d, e, f, g, h)
+    else
+        assert(nil, qtype)
+    end
 end
 
 local dns = {}
-local server = "8.8.8.8"
+--local server = "8.8.8.8"
+local server = "172.16.100.200"
 local port = 53
 
 local function exception(info)
@@ -226,30 +239,40 @@ end
 
 -- name cached
 local cached = {}
-local function query_cache(name) 
-    local t = cached[name]
+local function query_cache(qtype, name)
+    local qcache = cached[qtype]
+    if not qcache then
+        return
+    end
+    local t = qcache[name]
     if t then
         if t.expired < levent.now() then
-            cached[name] = nil
-            return nil
+            qcache[name] = nil
+            return
         end
         return t.data
     end
-    return nil
 end
 
-local function set_cache(name, ttl, data)
+local function set_cache(qtype, name, ttl, data)
     if ttl and ttl > 0 and data and #data > 0 then
-        cached[name] = {
+        local qcache = cached[qtype]
+        if not qcache then
+            qcache = {}
+            cached[qtype] = qcache
+        end
+        qcache[name] = {
             expired = levent.now() + ttl,
             data = data
         }
     end
 end
 
-function dns.resolve(name, timeout)
+function dns.resolve(name, ipv6, timeout)
+    local qtype = ipv6 and QTYPE.AAAA or QTYPE.A
     local name = name:lower()
-    local ret = query_cache(name)
+
+    local ret = query_cache(qtype, name)
     if ret then
         return ret
     end
@@ -264,7 +287,7 @@ function dns.resolve(name, timeout)
         qdcount = 1,
     }
 
-    local req = pack_header(question_header) .. pack_question(name, QTYPE.A, QCLASS.IN)
+    local req = pack_header(question_header) .. pack_question(name, qtype, QCLASS.IN)
     local resp, err = request(req, timeout)
     if not resp or #resp < DNS_HEADER_LEN then
         if exceptions.is_exception(err) then
@@ -278,10 +301,6 @@ function dns.resolve(name, timeout)
     -- verify answer
     if answer_header.tid ~= question_header.tid or answer_header.qdcount ~= 1 then
         return nil, exception("malformed packet")
-    end
-
-    if answer_header.ancount == 0 then
-        return nil, exception("no ip")
     end
 
     ok, question,left = pcall(unpack_question, resp, left)
@@ -300,9 +319,9 @@ function dns.resolve(name, timeout)
         if not ok then
             return nil, exception(answer)
         end
-        -- only extract ip address
-        if answer.atype == QTYPE.A then
-            ok, ip = pcall(unpack_a_rdata, answer.rdata)
+        -- only extract qtype address
+        if answer.atype == qtype then
+            ok, ip = pcall(unpack_rdata, qtype, answer.rdata)
             if not ok then
                 return nil, exception(ip)
             end
@@ -312,9 +331,9 @@ function dns.resolve(name, timeout)
     end
 
     if #answers == 0 then
-        return nil
+        return nil, exception("no ip")
     end
-    set_cache(name, ttl, answers)
+    set_cache(qtype, name, ttl, answers)
     return answers
 end
 return dns

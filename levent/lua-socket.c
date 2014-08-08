@@ -167,7 +167,11 @@ _resolve(lua_State *L) {
     const char* host = luaL_checkstring(L, 1);
     struct addrinfo *res = 0;
 
-    int err = getaddrinfo(host, NULL, NULL, &res);
+    struct addrinfo hints;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+
+    int err = getaddrinfo(host, NULL, &hints, &res);
     if(err != 0) {
         lua_pushnil(L);
         lua_pushinteger(L, err);
@@ -179,7 +183,7 @@ _resolve(lua_State *L) {
     lua_newtable(L);
     while(res) {
         // ignore all unsupported address
-        if(res->ai_family == AF_INET || res->ai_family == AF_INET6) {
+        if((res->ai_family == AF_INET || res->ai_family == AF_INET6) && res->ai_socktype == SOCK_STREAM) {
             lua_createtable(L, 0, 2);
             lua_pushinteger(L, res->ai_family);
             lua_setfield(L, -2, "family");

@@ -2,8 +2,9 @@ local levent = require "levent.levent"
 local dns    = require "levent.dns"
 local seri   = require "levent.tpseri"
 
-local function test()
-    local answers, err = dns.resolve("www.google.com", 1)
+local function resolve(host, ipv6)
+    print("resolve:", ipv6 and "ipv6" or "ipv4", host)
+    local answers, err = dns.resolve(host, ipv6, 1)
     if answers then
         print(seri(answers))
     else
@@ -12,8 +13,8 @@ local function test()
 end
 
 local function run()
-    test()
-    test()
+    resolve("www.google.com", true)
+    resolve("www.google.com")
 end
 
 levent.start(run)
