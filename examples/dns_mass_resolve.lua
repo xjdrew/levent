@@ -1,25 +1,36 @@
 local levent = require "levent.levent"
 local dns    = require "levent.dns"
 local seri   = require "levent.tpseri"
+local queue  = require "levent.queue"
 
 local N = 1000
 local finished = 0
-function job(hostname, timeout)
-    local ips, err = dns.resolve(hostname, timeout)
-    finished = finished + 1
-    if ips then
-        print(string.format("%s = %s", hostname, table.concat(ips, ",")))
-    else
-        print(string.format("%s failed with %s", hostname, err))
+local workers = 100
+
+function job(q)
+    while true do
+        local hostname = q:get()
+        local ips, err = dns.resolve(hostname, false)
+        finished = finished + 1
+        if ips then
+            print(string.format("%s = %s", hostname, table.concat(ips, ",")))
+        else
+            print(string.format("%s failed with %s", hostname, err))
+        end
     end
 end
 
 function start()
-    local now = levent.now()
-    for i=10,N do
-        levent.spawn(job, string.format("%s.com", i))
+    local q = queue.queue()
+    for i=1, workers do
+        levent.spawn(job, q)
     end
-    levent.sleep(2)
+
+    for i=10,N+10 do
+        q:put(string.format("%s.com", i))
+    end
+
+    print(pcall(q.join,q,2))
     levent.exit()
     print(string.format("finished within 2 seconds: %d/%d", finished, N))
 end

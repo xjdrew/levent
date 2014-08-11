@@ -1,6 +1,12 @@
+--[[
+-- author: xjdrew
+-- date: 2014-08-08
+--]]
+
 local class   = require "levent.class"
 local hub     = require "levent.hub"
 local timeout = require "levent.timeout"
+local lock    = require "levent.lock"
 
 local Queue = class("Queue")
 
@@ -16,6 +22,9 @@ function Queue:_init(maxsize)
 
     self.getters = {}
     self.putters = {}
+
+    self.cond = lock.event()
+    self.cond:set()
 
     self.is_in_put_unlock = false
     self.is_in_get_unlock = false
@@ -36,16 +45,10 @@ function Queue:_put_unlock()
     self.is_in_put_unlock = false
 end
 
-function Queue:_schedule_put_unlock() 
-    if not self.is_in_put_unlock and next(self.putters) then
-        self.is_in_put_unlock = true
-        hub.loop:run_callback(self._put_unlock, self)
-    end
-end
-
 function Queue:_get_unlock()
     while true do
         if self.length == 0 then
+            self.cond:set()
             break
         end
 
@@ -56,13 +59,6 @@ function Queue:_get_unlock()
         waiter:switch(true)
     end
     self.is_in_get_unlock = false
-end
-
-function Queue:_schedule_get_unlock() 
-    if not self.is_in_get_unlock and next(self.getters) then
-        self.is_in_get_unlock = true
-        hub.loop:run_callback(self._get_unlock, self)
-    end
 end
 
 function Queue:is_full()
@@ -80,14 +76,21 @@ function Queue:_get()
     assert(self.length > 0)
     local item = table.remove(self.items, 1)
     self.length = self.length - 1
-    self:_schedule_put_unlock()
+    if not self.is_in_put_unlock and next(self.putters) then
+        self.is_in_put_unlock = true
+        hub.loop:run_callback(self._put_unlock, self)
+    end
     return item
 end
 
 function Queue:_put(item)
     self.length = self.length + 1
     self.items[self.length] = item
-    self:_schedule_get_unlock()
+    self.cond:clear()
+    if not self.is_in_get_unlock and next(self.getters) then
+        self.is_in_get_unlock = true
+        hub.loop:run_callback(self._get_unlock, self)
+    end
 end
 
 function Queue:put(item, sec)
@@ -123,6 +126,10 @@ function Queue:get(sec)
         error(val)
     end
     return self:_get()
+end
+
+function Queue:join(sec)
+    self.cond:wait(sec)
 end
 
 local M = {}

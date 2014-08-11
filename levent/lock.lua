@@ -52,7 +52,7 @@ function Event:wait(sec)
     if not ok then
         error(val)
     end
-    return ok
+    return self.flag
 end
 
 function Event:_notify()
@@ -123,8 +123,69 @@ function AsyncResult:_notify()
     end
 end
 
+local Semaphore = class("Semaphore")
+function Semaphore:_init(value)
+    value = value or 1
+    assert(value >= 0, value)
+    self.counter = value
+    self.notifier = false
+    self.links = {}
+end
+
+function Semaphore:locked()
+    return self.counter <= 0
+end
+
+function Semaphore:release()
+    self.counter = self.counter + 1
+    if not self.notifier and next(self.links) then
+        self.notifier = true
+        hub.loop:run_callback(self._notify, self)
+    end
+end
+
+function Semaphore:wait(sec)
+    if self.counter > 0 then
+        return self.counter
+    end
+    
+    local waiter = hub:waiter()
+    self.links[waiter] = true
+
+    local t = timeout.start_new(sec)
+    local ok, val = pcall(waiter.get, waiter)
+    self.links[waiter] = nil
+    t:cancel()
+    if not ok then
+        error(val)
+    end
+    assert(self.counter > 0, self.counter)
+    return self.counter
+end
+
+function Semaphore:acquire(sec)
+    self:wait(sec)
+    self.counter = self.counter - 1
+    return true
+end
+
+function Semaphore:_notify()
+    while true do
+        if self.counter <= 0 then
+            break
+        end
+
+        local waiter = next(self.links)
+        if not waiter then
+            break
+        end
+        waiter:switch(true)
+    end
+end
+
 local lock = {}
 lock.event = Event.new
 lock.async_result = AsyncResult.new
+lock.semaphore = Semaphore.new
 return lock
 
