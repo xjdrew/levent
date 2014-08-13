@@ -43,35 +43,34 @@ mt.method_CONNECT = function(self)
     print("enter method connect") 
 end
 
-mt.flush_two_socket = function(self)
-    local count = 1
-    local dirty
+mt.keep_request = function(self)
+    print("keep request")
     while true do
-        self.target:set_timeout(1)
-        self.client:set_timeout(1)
-        local data, err = self.target:recv(BUFLEN)
-        if data and #data > 0 then
-            print("recv", data)
-            self.client:sendall(data)
-            dirty = true
+        local req, err = self.client:recv(BUFLEN)
+        if req and #req > 0 then
+            self.target:sendall(req)
         else
-            dirty = false
-        end
-        local send_data, err = self.client:recv(BUFLEN)
-        if send_data and #send_data > 0 then
-            print("client keep send:", send_data)
-            self.target:sendall(send_data)
-            dirty = true
-        else
-            dirty = false
-        end
-        if not dirty then
-            count = count + 1
-        end
-        if count > 3 then
             break
         end
     end
+end
+
+mt.keep_resp = function(self)
+    print("keep resp")
+    while true do
+        local resp, err = self.target:recv(BUFLEN)
+        if resp and #resp > 0 then
+            self.client:sendall(resp)
+        else
+            break
+        end
+    end
+end
+
+mt.flush_two_socket = function(self)
+    levent.spawn(self.keep_resp, self)
+    levent.spawn(self.keep_request, self)
+    levent.sleep(1)
 end
 
 mt.method_others = function(self)
