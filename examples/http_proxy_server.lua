@@ -21,6 +21,7 @@ mt.get_base_header = function(self)
     for i in string.gmatch(base_header, "%S+") do
         table.insert(result, i)
     end
+    self.client_buffer = self.client_buffer:sub(start_pos + 1, -1)
     return table.unpack(result)
 end
 
@@ -41,6 +42,14 @@ end
 
 mt.method_CONNECT = function(self)
     print("enter method connect") 
+    self.path = self.path:sub(8, -1)
+    local i = self.path:find("/")
+    local host = self.path:sub(1, i - 1)
+    local path = self.path:sub(i, -1)
+    self:connect_target(host)
+    self.target:sendall("HTTP/1.1 200 Connection established\n Proxy-agent: 0.0.1\n\n")
+    self.client_buffer = ""
+    self:flush_two_socket()
 end
 
 mt.keep_request = function(self)
@@ -79,8 +88,8 @@ mt.method_others = function(self)
     local host = self.path:sub(1, i - 1)
     local path = self.path:sub(i, -1)
     self:connect_target(host)
-    local first_data = string.format("%s %s %s \r\n", self.method, path, self.protocol)..self.client_buffer
-    print("first_data", first_data)
+    local first_data = string.format("%s %s %s\r\n", self.method, path, self.protocol)..self.client_buffer
+    print(string.format("%q", first_data))
     self.target:sendall(first_data)
     self:flush_two_socket()
 end
