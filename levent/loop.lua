@@ -55,8 +55,8 @@ function Watcher:get_priority()
     return self.cobj:get_priority()
 end
 
-function Watcher:set_priority()
-    return self.cobj:set_priority()
+function Watcher:set_priority(priority)
+    return self.cobj:set_priority(priority)
 end
 
 -- register special watcher cls

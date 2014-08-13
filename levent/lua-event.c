@@ -517,6 +517,9 @@ int luaopen_event_c(lua_State *L) {
     ADD_CONSTANT(L, EVBREAK_ONE);
     ADD_CONSTANT(L, EVBREAK_ALL);
 
+    // priority
+    ADD_CONSTANT(L, EV_MINPRI);
+    ADD_CONSTANT(L, EV_MAXPRI);
     return 1;
 }
 

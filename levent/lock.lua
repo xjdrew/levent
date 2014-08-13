@@ -50,7 +50,7 @@ function Event:wait(sec)
     self.links[waiter] = nil
     t:cancel()
     if not ok then
-        error(val)
+        return false, val
     end
     return self.flag
 end
@@ -146,7 +146,7 @@ end
 
 function Semaphore:wait(sec)
     if self.counter > 0 then
-        return self.counter
+        return true
     end
     
     local waiter = hub:waiter()
@@ -157,16 +157,19 @@ function Semaphore:wait(sec)
     self.links[waiter] = nil
     t:cancel()
     if not ok then
-        error(val)
+        return false, val
     end
     assert(self.counter > 0, self.counter)
-    return self.counter
+    return true
 end
 
 function Semaphore:acquire(sec)
-    self:wait(sec)
-    self.counter = self.counter - 1
-    return true
+    local ok, val = self:wait(sec)
+    if ok then
+        self.counter = self.counter - 1
+        return true
+    end
+    return false
 end
 
 function Semaphore:_notify()

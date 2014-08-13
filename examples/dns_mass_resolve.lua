@@ -30,7 +30,7 @@ function start()
         q:put(string.format("%s.com", i))
     end
 
-    print(pcall(q.join,q,2))
+    q:join(2)
     levent.exit()
     print(string.format("finished within 2 seconds: %d/%d", finished, N))
 end
