@@ -3,38 +3,35 @@ local levent = require "levent.levent"
 local seri = require "levent.tpseri"
 local _select = require "levent.select"
 
-local mt = {}
-mt.__index = mt
-
 BUFLEN = 4096
 TARGET_IP = "127.0.0.1"
 TARGET_PORT = 80
 
-function handle(client_sock)
-    client_sock:setblocking(false)
-    local target_sock, err = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    target_sock:setblocking(false)
-    target_sock:connect(TARGET_IP, TARGET_PORT)
+flush_socket = function(client, target)
     while true do
-        rlist, _ = _select.select_({target_sock, client_sock}) -- monitor read event only
-        local out, data
-        for _, sock in ipairs(rlist) do
-            if sock == client_sock then
-                out = target_sock
-                data = client_sock:recv(BUFLEN)
-            elseif sock == target_sock then
-                out = client_sock
-                data = client_sock:recv(BUFLEN)
-            end
-            if data and #data > 0 then
-                out:sendall(data)
-            else
-                target_sock:close()
-                client_sock:close()
-                return
-            end
+        local req, err = client:recv(BUFLEN)
+        if req and #req > 0 then
+            target:sendall(req)
+            --print("send to server")
+        else
+            client:close()
+            target:close()
+            --print("break keep request")
+            break
         end
     end
+end
+
+function handle(client_sock)
+    local target_sock, err = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    local ok, err = target_sock:connect(TARGET_IP, TARGET_PORT)
+    if not ok then
+        print("connect err:", err)
+        client_sock:close()
+        return
+    end
+    levent.spawn(flush_socket, client_sock, target_sock)
+    flush_socket(target_sock, client_sock)
 end
 
 local sock, err = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -48,7 +45,7 @@ function start_server()
             print("accept failed:", err)
             break
         end
-        print("new conn from:", csock:getpeername())
+        --print("new conn from:", csock:getpeername())
         levent.spawn(handle, csock)
     end
 end
