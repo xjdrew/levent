@@ -13,15 +13,16 @@ static int lstrerror(lua_State *L) {
     return 1;
 }
 
-int luaopen_levent_errno_c(lua_State *L) {
+static const struct luaL_Reg errno_module_methods[] = {
+    {"strerror", lstrerror},
+    {NULL, NULL}
+};
+
+LUALIB_API int luaopen_levent_errno_c(lua_State *L) {
     luaL_checkversion(L);
     
-    luaL_Reg l[] = {
-        {"strerror", lstrerror},
-        {NULL, NULL}
-    };
-    luaL_newlib(L, l);
 
+    luaL_newlib(L, errno_module_methods);
     ADD_CONSTANT(L, EINVAL);
     ADD_CONSTANT(L, EWOULDBLOCK);
     ADD_CONSTANT(L, EINPROGRESS);

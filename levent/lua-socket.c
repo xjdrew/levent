@@ -20,13 +20,21 @@ Module interface:
 */
 #include <string.h>
 #include <errno.h>
-#include <unistd.h>
+
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#pragma comment(lib, "Ws2_32.lib")
+#define close closesocket
+#else
 #include <fcntl.h>
 #include <sys/types.h>
+#include <unistd.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#endif
 
 #include "levent.h"
 
@@ -51,13 +59,13 @@ typedef struct _sock_t {
 /* 
  *   internal function 
  */
-inline static socket_t* 
+INLINE static socket_t* 
 _getsock(lua_State *L, int index) {
     socket_t* sock = (socket_t*)luaL_checkudata(L, index, SOCKET_METATABLE);
     return sock;
 }
 
-inline static void
+INLINE static void
 _setsock(lua_State *L, int fd, int family, int type, int protocol) {
 #ifdef SO_NOSIGPIPE
     int on = 1;
@@ -127,7 +135,7 @@ _makeaddr(lua_State *L, struct sockaddr *addr, int addrlen) {
     return 2;
 }
 
-inline static int
+INLINE static int
 _push_result(lua_State *L, int err) {
     if (err == 0) {
         lua_pushboolean(L, 1);
@@ -166,20 +174,21 @@ static int
 _resolve(lua_State *L) {
     const char* host = luaL_checkstring(L, 1);
     struct addrinfo *res = 0;
+	int err, i;
+	char buf[64];
 
     struct addrinfo hints;
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC;
 
-    int err = getaddrinfo(host, NULL, &hints, &res);
+    err = getaddrinfo(host, NULL, &hints, &res);
     if(err != 0) {
         lua_pushnil(L);
         lua_pushinteger(L, err);
         return 2;
     }
 
-    int i = 1;
-    char buf[64];
+    i = 1;
     lua_newtable(L);
     while(res) {
         // ignore all unsupported address
@@ -201,25 +210,36 @@ static int
 _sock_setblocking(lua_State *L) {
     socket_t *sock = _getsock(L, 1);
     int block = lua_toboolean(L, 2);
-    int flag = fcntl(sock->fd, F_GETFL, 0);
+#ifdef _WIN32
+	u_long argp = block?0:1;
+	ioctlsocket(sock->fd, FIONBIO, &argp);
+#else
+	int flag = fcntl(sock->fd, F_GETFL, 0);
+	if (flag == -1) {
+		flag = 0;
+	}
     if (block) {
         flag &= (~O_NONBLOCK);
     } else {
         flag |= O_NONBLOCK;
     }
     fcntl(sock->fd, F_SETFL, flag);
+#endif
+
     return 0;
 }
 
 static int
 _sock_connect(lua_State *L) {
+	int err;
+	const char *host, *port;
+	struct addrinfo *res = 0;
     socket_t *sock = _getsock(L, 1);
-    const char *host = luaL_checkstring(L, 2);
+    host = luaL_checkstring(L, 2);
     luaL_checkint(L, 3);
-    const char *port = lua_tostring(L, 3);
+    port = lua_tostring(L, 3);
 
-    struct addrinfo *res = 0;
-    int err = _getsockaddrarg(sock, host, port, &res);
+    err = _getsockaddrarg(sock, host, port, &res);
     if(err != 0) {
         lua_pushinteger(L, err);
         return 1;
@@ -237,10 +257,18 @@ _sock_connect(lua_State *L) {
 
 static int
 _sock_recv(lua_State *L) {
+	
     socket_t *sock = _getsock(L, 1);
     size_t len = luaL_checkunsigned(L, 2);
-    char buf[len];
-    ssize_t nread = recv(sock->fd, buf, len, 0);
+	int nread;
+
+#ifdef _WIN32
+	char *buf = (char*)lua_newuserdata(L, len);
+#else
+	char buf[len];
+#endif
+
+    nread = recv(sock->fd, buf, len, 0);
     if(nread < 0) {
         lua_pushnil(L);
         lua_pushinteger(L, errno);
@@ -257,6 +285,7 @@ _sock_send(lua_State *L) {
     const char* buf = luaL_checklstring(L, 2, &len);
     size_t from = luaL_optunsigned(L, 3, 0);
     int flags = 0;
+	int nwrite;
 #ifdef MSG_NOSIGNAL
     flags = MSG_NOSIGNAL;
 #endif
@@ -265,7 +294,7 @@ _sock_send(lua_State *L) {
         return luaL_argerror(L, 3, "should be less than length of argument #2");
     }
 
-    int nwrite = send(sock->fd, buf+from, len - from, flags);
+    nwrite = send(sock->fd, buf+from, len - from, flags);
     if(nwrite < 0) {
         lua_pushnil(L);
         lua_pushinteger(L, errno);
@@ -277,17 +306,24 @@ _sock_send(lua_State *L) {
 
 static int
 _sock_recvfrom(lua_State *L) {
-    socket_t *sock = _getsock(L, 1);
-    size_t len = luaL_checkunsigned(L, 2);
     socklen_t addr_len;
+	struct sockaddr *addr;
+	int nread;
+
+	socket_t *sock = _getsock(L, 1);
+    size_t len = luaL_checkunsigned(L, 2);
+#ifdef _WIN32
+	char *buf = (char*)lua_newuserdata(L, len);
+#else
+	char buf[len];
+#endif
+
     if(!_getsockaddrlen(sock, &addr_len)) {
         return luaL_argerror(L, 1, "bad family");
     }
 
-    struct sockaddr *addr = (struct sockaddr*)lua_newuserdata(L, addr_len);
-    char buf[len];
-
-    int nread = recvfrom(sock->fd, buf, len, 0, addr, &addr_len);
+    addr = (struct sockaddr*)lua_newuserdata(L, addr_len);
+    nread = recvfrom(sock->fd, buf, len, 0, addr, &addr_len);
     if(nread < 0) {
         lua_pushnil(L);
         lua_pushinteger(L, errno);
@@ -299,14 +335,20 @@ _sock_recvfrom(lua_State *L) {
 
 static int
 _sock_sendto(lua_State *L) {
-    socket_t *sock = _getsock(L, 1);
-    const char *host = luaL_checkstring(L, 2);
-    luaL_checkint(L, 3);
-    const char *port = lua_tostring(L, 3);
-    size_t len;
-    const char* buf = luaL_checklstring(L, 4, &len);
-    size_t from = luaL_optunsigned(L, 5, 0);
+    const char *host, *port, *buf;
+    size_t from, len;
     int flags = 0;
+    int err, nwrite;
+    struct addrinfo *res = 0;
+
+    socket_t *sock = _getsock(L, 1);
+    host = luaL_checkstring(L, 2);
+    luaL_checkint(L, 3);
+    port = lua_tostring(L, 3);
+    
+    buf = luaL_checklstring(L, 4, &len);
+    from = luaL_optunsigned(L, 5, 0);
+    
 #ifdef MSG_NOSIGNAL
     flags = MSG_NOSIGNAL;
 #endif
@@ -315,15 +357,15 @@ _sock_sendto(lua_State *L) {
         return luaL_argerror(L, 5, "should be less than length of argument #4");
     }
 
-    struct addrinfo *res = 0;
-    int err = _getsockaddrarg(sock, host, port, &res);
+   
+    err = _getsockaddrarg(sock, host, port, &res);
     if(err != 0) {
         lua_pushnil(L);
         lua_pushinteger(L, err);
         return 1;
     }
 
-    int nwrite = sendto(sock->fd, buf + from, len - from, flags, res->ai_addr, res->ai_addrlen);
+    nwrite = sendto(sock->fd, buf + from, len - from, flags, res->ai_addr, res->ai_addrlen);
     if(nwrite < 0) {
         lua_pushnil(L);
         lua_pushinteger(L, errno);
@@ -335,13 +377,16 @@ _sock_sendto(lua_State *L) {
 
 static int
 _sock_bind(lua_State *L) {
-    socket_t *sock = _getsock(L, 1);
-    const char *host = luaL_checkstring(L, 2);
-    luaL_checkint(L, 3);
-    const char *port = lua_tostring(L, 3);
-
+    const char* host, *port;
+    int err;
     struct addrinfo *res = 0;
-    int err = _getsockaddrarg(sock, host, port, &res);
+
+    socket_t *sock = _getsock(L, 1);
+    host = luaL_checkstring(L, 2);
+    luaL_checkint(L, 3);
+    port = lua_tostring(L, 3);
+
+    err = _getsockaddrarg(sock, host, port, &res);
     if(err != 0) {
         lua_pushinteger(L, err);
         return 1;
@@ -359,7 +404,7 @@ _sock_bind(lua_State *L) {
 static int
 _sock_listen(lua_State *L) {
     socket_t *sock = _getsock(L, 1);
-    int backlog = luaL_optnumber(L, 2, 256);
+    int backlog = luaL_optint(L, 2, 256);
     int err = listen(sock->fd, backlog);
     if(err != 0) {
         return _push_result(L, errno);
@@ -392,12 +437,15 @@ static int
 _sock_getpeername(lua_State *L) {
     socket_t *sock = _getsock(L, 1);
     socklen_t len;
+    struct sockaddr *addr;
+    int err;
+
     if(!_getsockaddrlen(sock, &len)) {
         return luaL_argerror(L, 1, "bad family");
     }
 
-    struct sockaddr *addr = (struct sockaddr*)lua_newuserdata(L, len);
-    int err = getpeername(sock->fd, addr, &len);
+    addr = (struct sockaddr*)lua_newuserdata(L, len);
+    err = getpeername(sock->fd, addr, &len);
     if(err < 0) {
         lua_pushnil(L);
         lua_pushinteger(L, errno);
@@ -410,12 +458,15 @@ static int
 _sock_getsockname(lua_State *L) {
     socket_t *sock = _getsock(L, 1);
     socklen_t len;
+    struct sockaddr *addr;
+    int err;
+
     if(!_getsockaddrlen(sock, &len)) {
         return luaL_argerror(L, 1, "bad family(%d)");
     }
 
-    struct sockaddr *addr = (struct sockaddr*)lua_newuserdata(L, len);
-    int err = getsockname(sock->fd, addr, &len);
+    addr = (struct sockaddr*)lua_newuserdata(L, len);
+    err = getsockname(sock->fd, addr, &len);
     if(err < 0) {
         lua_pushnil(L);
         lua_pushinteger(L, errno);
@@ -426,6 +477,8 @@ _sock_getsockname(lua_State *L) {
 
 static int
 _sock_getsockopt(lua_State *L) {
+    int err;
+
     socket_t *sock = _getsock(L, 1);
     int level = luaL_checkint(L, 2);
     int optname = luaL_checkint(L, 3);
@@ -435,7 +488,6 @@ _sock_getsockopt(lua_State *L) {
         return luaL_argerror(L, 4, "should less than 1024");
     }
 
-    int err;
     if(buflen == 0) {
         int flag = 0;
         socklen_t flagsize = sizeof(flag);
@@ -461,15 +513,16 @@ failed:
 
 static int
 _sock_setsockopt(lua_State *L) {
+    const char* buf;
+    size_t buflen;
+    int type, err;
+
     socket_t *sock = _getsock(L, 1);
     int level = luaL_checkint(L, 2);
     int optname = luaL_checkint(L, 3);
     luaL_checkany(L, 4);
 
-    const char* buf;
-    size_t buflen;
-
-    int type = lua_type(L, 4);
+    type = lua_type(L, 4);
     if(type == LUA_TSTRING) {
         buf = luaL_checklstring(L, 4, &buflen);
     } else if(type == LUA_TNUMBER) {
@@ -480,7 +533,7 @@ _sock_setsockopt(lua_State *L) {
         return luaL_argerror(L, 4, "unsupported type");
     }
 
-    int err = setsockopt(sock->fd, level, optname, buf, buflen);
+    err = setsockopt(sock->fd, level, optname, buf, buflen);
     if(err < 0) {
         lua_pushboolean(L, 0);
         lua_pushinteger(L, errno);
@@ -510,40 +563,73 @@ _sock_tostring(lua_State *L) {
 
 /* end */
 
-int luaopen_levent_socket_c(lua_State *L) {
+// +construct socket metatable
+static const struct luaL_Reg socket_mt[] = {
+    {"__gc", _sock_close},
+    {"__tostring",  _sock_tostring},
+    {NULL, NULL}
+};
+
+static const struct luaL_Reg socket_methods[] = {
+    {"setblocking", _sock_setblocking},
+    {"connect", _sock_connect},
+
+    {"recv", _sock_recv},
+    {"send", _sock_send},
+
+    {"recvfrom", _sock_recvfrom},
+    {"sendto", _sock_sendto},
+
+    {"bind", _sock_bind},
+    {"listen", _sock_listen},
+    {"accept", _sock_accept},
+
+    {"fileno", _sock_fileno},
+    {"getpeername", _sock_getpeername},
+    {"getsockname", _sock_getsockname},
+
+    {"getsockopt", _sock_getsockopt},
+    {"setsockopt", _sock_setsockopt},
+
+    {"close", _sock_close},
+    {NULL, NULL}
+};
+
+static const struct luaL_Reg socket_module_methods[] = {
+    {"socket", _socket},
+    {"resolve", _resolve},
+    {NULL, NULL}
+};
+
+#ifdef _WIN32
+void os_fini() {
+    WSACleanup();
+}
+
+void os_init() {
+    WSADATA WSAData;
+    int ret = WSAStartup(0x0101, &WSAData);
+    if(ret == 0) {
+        atexit(os_fini);
+    } else {
+        printf("init socket failed:%d\n", ret);
+        exit(1);
+    }
+}
+
+BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) {
+    if(fdwReason == DLL_PROCESS_ATTACH) {
+        os_init();
+    }
+    return TRUE;
+}
+#endif
+
+
+LUALIB_API int luaopen_levent_socket_c(lua_State *L) {
     luaL_checkversion(L);
-        
-    // +construct socket metatable
-    luaL_Reg socket_mt[] = {
-        {"__gc", _sock_close},
-        {"__tostring",  _sock_tostring},
-        {NULL, NULL}
-    };
 
-    luaL_Reg socket_methods[] = {
-        {"setblocking", _sock_setblocking},
-        {"connect", _sock_connect},
 
-        {"recv", _sock_recv},
-        {"send", _sock_send},
-
-        {"recvfrom", _sock_recvfrom},
-        {"sendto", _sock_sendto},
-
-        {"bind", _sock_bind},
-        {"listen", _sock_listen},
-        {"accept", _sock_accept},
-
-        {"fileno", _sock_fileno},
-        {"getpeername", _sock_getpeername},
-        {"getsockname", _sock_getsockname},
-
-        {"getsockopt", _sock_getsockopt},
-        {"setsockopt", _sock_setsockopt},
-
-        {"close", _sock_close},
-        {NULL, NULL}
-    };
 
     luaL_newmetatable(L, SOCKET_METATABLE);
     luaL_setfuncs(L, socket_mt, 0);
@@ -553,13 +639,7 @@ int luaopen_levent_socket_c(lua_State *L) {
     lua_pop(L, 1);
     // +end
 
-    luaL_Reg l[] = {
-        {"socket", _socket},
-        {"resolve", _resolve},
-        {NULL, NULL}
-    };
-
-    luaL_newlib(L, l);
+    luaL_newlib(L, socket_module_methods);
     // address family
     ADD_CONSTANT(L, AF_INET);
     ADD_CONSTANT(L, AF_INET6);

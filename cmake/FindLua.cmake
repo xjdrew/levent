@@ -69,6 +69,7 @@ FIND_PATH(LUA_INCLUDE_DIR lua.h
   /opt/local # DarwinPorts
   /opt/csw # Blastwave
   /opt
+  ${CMAKE_CURRENT_SOURCE_DIR}/deps/lua/win
 )
 
 # Find the lua library
@@ -86,6 +87,7 @@ FIND_LIBRARY(LUA_LIBRARY
   /opt/local
   /opt/csw
   /opt
+  ${CMAKE_CURRENT_SOURCE_DIR}/deps/lua/win
 )
 
 IF(LUA_LIBRARY)

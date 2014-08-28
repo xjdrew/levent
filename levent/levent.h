@@ -9,7 +9,13 @@
 #define LUA_OK 0
 #endif
 
-inline static void
+#ifdef _WIN32
+#define INLINE __inline
+#else
+#define INLINE inline
+#endif
+
+INLINE static void
 _add_unsigned_constant(lua_State *L, const char* name, unsigned int value) {
     lua_pushunsigned(L, value);
     lua_setfield(L, -2, name);

@@ -32,12 +32,12 @@ typedef struct loop_t {
 /*
  *    internal function
  */
-inline static loop_t* get_loop(lua_State *L, int index) {
+INLINE static loop_t* get_loop(lua_State *L, int index) {
     loop_t *lo = (loop_t*)luaL_checkudata(L, index, LOOP_METATABLE);
     return lo;
 }
 
-inline static void setloop(lua_State *L, struct ev_loop *loop) {
+INLINE static void setloop(lua_State *L, struct ev_loop *loop) {
     loop_t *lo = (loop_t*)lua_newuserdata(L, sizeof(loop_t));
     luaL_getmetatable(L, LOOP_METATABLE);
     lua_setmetatable(L, -2);
@@ -188,30 +188,27 @@ LOOP_METHOD_UNSIGNED(pending_count)
 //  2: flags
 //  1: loop
 static int loop_run(lua_State *L) {
-    if(lua_gettop(L) != 4) {
-        return luaL_error(L, "wrong arguments count, need 4");
-    }
-
+    struct ev_loop *loop;
     loop_t *lo = get_loop(L, 1);
     int flags = luaL_checkint(L, 2);
     luaL_checktype(L, 3, LUA_TFUNCTION);
     luaL_checkany(L, 4);
     lua_pushcfunction(L, traceback);
 
-    struct ev_loop *loop = lo->loop;
+    loop = lo->loop;
     ev_set_userdata(loop, L);
     lua_pushboolean(L, ev_run(loop, flags));
     ev_set_userdata(loop, NULL);
     return 1;
 }
 
-static const luaL_Reg mt_loop[] = {
+static const struct luaL_Reg mt_loop[] = {
     {"__gc", loop_destroy},
     {"__tostring", loop_tostring},
     {NULL, NULL}
 };
 
-static const luaL_Reg methods_loop[] = {
+static const struct luaL_Reg methods_loop[] = {
     {"loop_fork", loop_loop_fork},
     {"is_default_loop", loop_is_default_loop},
     {"iteration", loop_iteration},
@@ -246,7 +243,7 @@ static const luaL_Reg methods_loop[] = {
     }
 
 #define WATCHER_GET(type) \
-    inline static ev_##type* get_##type(lua_State *L, int index) { \
+    INLINE static ev_##type* get_##type(lua_State *L, int index) { \
         ev_##type *w = (ev_##type*)luaL_checkudata(L, index, WATCHER_METATABLE(type)); \
         return w; \
     }
@@ -344,12 +341,12 @@ static int io_init(lua_State *L) {
     return 0;
 }
 
-static const luaL_Reg mt_io[] = {
+static const struct luaL_Reg mt_io[] = {
     {"__tostring", io_tostring},
     {NULL, NULL}
 };
 
-static const luaL_Reg methods_io[] = {
+static const struct luaL_Reg methods_io[] = {
     WATCHER_METAMETHOD_TABLE(io),
     {NULL, NULL}
 };
@@ -372,12 +369,12 @@ static int timer_again(lua_State *L) {
     return 0;
 }
 
-static const luaL_Reg mt_timer[] = {
+static const struct luaL_Reg mt_timer[] = {
     {"__tostring", timer_tostring},
     {NULL, NULL}
 };
 
-static const luaL_Reg methods_timer[] = {
+static const struct luaL_Reg methods_timer[] = {
     WATCHER_METAMETHOD_TABLE(timer),
     {"again", timer_again},
     {NULL, NULL}
@@ -393,12 +390,12 @@ static int signal_init(lua_State *L) {
     return 0;
 }
 
-static const luaL_Reg mt_signal[] = {
+static const struct luaL_Reg mt_signal[] = {
     {"__tostring", signal_tostring},
     {NULL, NULL}
 };
 
-static const luaL_Reg methods_signal[] = {
+static const struct luaL_Reg methods_signal[] = {
     WATCHER_METAMETHOD_TABLE(signal),
     {NULL, NULL}
 };
@@ -412,12 +409,12 @@ static int prepare_init(lua_State *L) {
     return 0;
 }
 
-static const luaL_Reg mt_prepare[] = {
+static const struct luaL_Reg mt_prepare[] = {
     {"__tostring", prepare_tostring},
     {NULL, NULL}
 };
 
-static const luaL_Reg methods_prepare[] = {
+static const struct luaL_Reg methods_prepare[] = {
     WATCHER_METAMETHOD_TABLE(prepare),
     {NULL, NULL}
 };
@@ -431,12 +428,12 @@ static int check_init(lua_State *L) {
     return 0;
 }
 
-static const luaL_Reg mt_check[] = {
+static const struct luaL_Reg mt_check[] = {
     {"__tostring", check_tostring},
     {NULL, NULL}
 };
 
-static const luaL_Reg methods_check[] = {
+static const struct luaL_Reg methods_check[] = {
     WATCHER_METAMETHOD_TABLE(check),
     {NULL, NULL}
 };
@@ -450,12 +447,12 @@ static int idle_init(lua_State *L) {
     return 0;
 }
 
-static const luaL_Reg mt_idle[] = {
+static const struct luaL_Reg mt_idle[] = {
     {"__tostring", idle_tostring},
     {NULL, NULL}
 };
 
-static const luaL_Reg methods_idle[] = {
+static const struct luaL_Reg methods_idle[] = {
     WATCHER_METAMETHOD_TABLE(idle),
     {NULL, NULL}
 };
@@ -469,7 +466,20 @@ METATABLE_BUILDER(prepare, WATCHER_METATABLE(prepare))
 METATABLE_BUILDER(check, WATCHER_METATABLE(check))
 METATABLE_BUILDER(idle, WATCHER_METATABLE(idle))
 
-int luaopen_levent_ev_c(lua_State *L) {
+struct luaL_Reg ev_module_methods[] = {
+    {"version", ev_version},
+    {"default_loop", default_loop},
+    {"new_loop", new_loop},
+    {"new_io", new_io},
+    {"new_timer", new_timer},
+    {"new_signal", new_signal},
+    {"new_prepare", new_prepare},
+    {"new_check", new_check},
+    {"new_idle", new_idle},
+    {NULL, NULL}
+};
+
+LUALIB_API int luaopen_levent_ev_c(lua_State *L) {
     luaL_checkversion(L);
 
     // call create metatable
@@ -481,19 +491,7 @@ int luaopen_levent_ev_c(lua_State *L) {
     CREATE_METATABLE(check, L);
     CREATE_METATABLE(idle, L);
 
-    luaL_Reg l[] = {
-        {"version", ev_version},
-        {"default_loop", default_loop},
-        {"new_loop", new_loop},
-        {"new_io", new_io},
-        {"new_timer", new_timer},
-        {"new_signal", new_signal},
-        {"new_prepare", new_prepare},
-        {"new_check", new_check},
-        {"new_idle", new_idle},
-        {NULL, NULL}
-    };
-    luaL_newlib(L, l);
+    luaL_newlib(L, ev_module_methods);
 
     // add constant
     ADD_CONSTANT(L, EV_READ)
