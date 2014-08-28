@@ -6,8 +6,6 @@ include(cmake/dist.cmake)
 #message("linker flags:${CMAKE_SHARED_LINKER_FLAGS}")
 #message("compiler: ${CMAKE_C_COMPILER}")
 
-message(${LUA_LIBRARIES})
-
 #find lua
 find_package(Lua)
 if(NOT LUA_FOUND)

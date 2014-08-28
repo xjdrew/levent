@@ -15,3 +15,11 @@ libev/event.lo
 libev/event.o
 libev/libev.la
 libev/libtool
+*.vcxproj*
+*sdf
+*.sln
+*.suo
+Debug/
+Release/
+*.dll
+ipch

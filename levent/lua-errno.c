@@ -7,6 +7,28 @@
 
 #include "levent.h"
 
+#ifdef _WIN32
+#include <windows.h>
+
+#undef EINVAL
+#define EINVAL WSAEINVAL
+
+#undef EWOULDBLOCK
+#define EWOULDBLOCK WSAEWOULDBLOCK
+
+#undef EINPROGRESS
+#define EINPROGRESS WSAEINPROGRESS
+
+#undef EALREADY
+#define EALREADY WSAEALREADY
+
+#undef EISCONN
+#define EISCONN WSAEISCONN
+
+#undef EBADF
+#define EBADF WSAEBADF
+#endif
+
 static int lstrerror(lua_State *L) {
     int errnum = luaL_checkint(L, 1);
     lua_pushstring(L, strerror(errnum));
@@ -20,7 +42,6 @@ static const struct luaL_Reg errno_module_methods[] = {
 
 LUALIB_API int luaopen_levent_errno_c(lua_State *L) {
     luaL_checkversion(L);
-    
 
     luaL_newlib(L, errno_module_methods);
     ADD_CONSTANT(L, EINVAL);

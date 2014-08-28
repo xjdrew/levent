@@ -26,6 +26,7 @@ Module interface:
 #include <ws2tcpip.h>
 #pragma comment(lib, "Ws2_32.lib")
 #define close closesocket
+#define errno WSAGetLastError()
 #else
 #include <fcntl.h>
 #include <sys/types.h>
@@ -602,7 +603,7 @@ static const struct luaL_Reg socket_module_methods[] = {
 };
 
 #ifdef _WIN32
-void os_fini() {
+void os_fini(void) {
     WSACleanup();
 }
 

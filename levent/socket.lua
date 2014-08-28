@@ -175,7 +175,7 @@ function Socket:connect(ip, port)
         if ok then
             return ok
         end
-        if self.timeout == 0.0 or err ~= errno.EINPROGRESS then
+        if self.timeout == 0.0 or (err ~= errno.EINPROGRESS and err ~= errno.EWOULDBLOCK) then
             return ok, err
         end
         return _wait(self._write_event, self.timeout)
