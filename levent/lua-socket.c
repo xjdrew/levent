@@ -510,7 +510,7 @@ _sock_tostring(lua_State *L) {
 
 /* end */
 
-int luaopen_socket_c(lua_State *L) {
+int luaopen_levent_socket_c(lua_State *L) {
     luaL_checkversion(L);
         
     // +construct socket metatable

@@ -469,7 +469,7 @@ METATABLE_BUILDER(prepare, WATCHER_METATABLE(prepare))
 METATABLE_BUILDER(check, WATCHER_METATABLE(check))
 METATABLE_BUILDER(idle, WATCHER_METATABLE(idle))
 
-int luaopen_event_c(lua_State *L) {
+int luaopen_levent_ev_c(lua_State *L) {
     luaL_checkversion(L);
 
     // call create metatable

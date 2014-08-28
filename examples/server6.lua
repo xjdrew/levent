@@ -1,4 +1,4 @@
-local socket = require "socket.c"
+local socket = require "levent.socket.c"
 local sock, err = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
 assert(sock, errmsg)
 print("bind:", sock:bind("", 8858))

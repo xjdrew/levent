@@ -1,5 +1,5 @@
 local seri   = require "levent.tpseri"
-local socket = require "socket.c"
+local socket = require "levent.socket.c"
 
 local function resolve(host)
     print("resolve:", host)

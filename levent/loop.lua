@@ -1,5 +1,5 @@
 local class = require "levent.class"
-local ev = require "event.c"
+local ev = require "levent.ev.c"
 
 local function callback(func, ...)
     if select("#", ...) > 0 then

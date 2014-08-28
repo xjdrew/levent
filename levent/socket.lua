@@ -3,8 +3,8 @@
 -- date: 2014-07-17
 --]]
 
-local c       = require "socket.c"
-local errno   = require "errno.c"
+local c       = require "levent.socket.c"
+local errno   = require "levent.errno.c"
 
 local class   = require "levent.class"
 local hub     = require "levent.hub"

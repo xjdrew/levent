@@ -1,4 +1,4 @@
-local socket = require "socket.c"
+local socket = require "levent.socket.c"
 for k,v in pairs(socket) do
 	print(k,v)
 end

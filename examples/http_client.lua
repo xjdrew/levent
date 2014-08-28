@@ -1,4 +1,4 @@
-local socket = require "socket.c"
+local socket = require "levent.socket.c"
 
 local host = "www.example.com"
 local port = 80

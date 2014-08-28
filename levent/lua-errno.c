@@ -1,4 +1,4 @@
-/* lua-ev.c
+/* lua-errno.c
  * author: xjdrew
  * date: 2014-07-24
  */
@@ -13,7 +13,7 @@ static int lstrerror(lua_State *L) {
     return 1;
 }
 
-int luaopen_errno_c(lua_State *L) {
+int luaopen_levent_errno_c(lua_State *L) {
     luaL_checkversion(L);
     
     luaL_Reg l[] = {

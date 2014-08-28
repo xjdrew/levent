@@ -1,4 +1,4 @@
-local ev = require "event.c"
+local ev = require "levent.ev.c"
 print(ev.version())
 local loop = ev.default_loop()
 print(loop)
