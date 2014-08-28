@@ -26,14 +26,17 @@ macro (add_lua_library lname)
 endmacro()
 
 # levent.module
-add_lua_library(levent levent/lua-socket.c levent/lua-errno.c levent/lua-levent.c levent/lua-ev.c)
-
-target_link_libraries(levent ev)
-add_custom_command(TARGET levent
-    PRE_BUILD
-    COMMAND CFLAGS=-fPIC ./configure --enable-shared=no
-    COMMAND make
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/deps/libev)
+IF(NOT WIN32)
+    add_lua_library(levent levent/lua-socket.c levent/lua-errno.c levent/lua-levent.c levent/lua-ev.c)
+    target_link_libraries(levent ev)
+    add_custom_command(TARGET levent
+        PRE_BUILD
+        COMMAND CFLAGS=-fPIC ./configure --enable-shared=no
+        COMMAND make
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/deps/libev)
+ELSE()
+    add_lua_library(levent levent/lua-socket.c levent/lua-errno.c levent/lua-levent.c levent/lua-ev.c levent/evwrap.c)
+ENDIF()
 
 # levent deps module
 add_lua_library(struct deps/struct/struct.c)
