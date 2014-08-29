@@ -1,0 +1,12 @@
+libev/.libs/
+libev/config.h
+libev/config.log
+libev/config.status
+libev/ev.lo
+libev/ev.o
+libev/event.lo
+libev/event.o
+libev/libev.la
+libev/libtool
+libev/stamp-h1
+

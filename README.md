@@ -33,15 +33,11 @@ cmake .
 make
 ```
 
+build in windows, ref to [blog](http://xjdrew.github.io/blog/2014/08/28/compile-levent/)
+
 running tests
 -------------
 ```
 lua tests/test_socket.lua
 lua example/echo.lua
 ```
-
-to-do list
-----------
-* Cooperative dns query
-* Support more platform include windows, openbsd.
-
