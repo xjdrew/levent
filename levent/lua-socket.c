@@ -55,6 +55,10 @@ typedef struct _sock_t {
     int family;
     int type;
     int protocol;
+#ifdef _WIN32
+    // default: libev suppose you input operating-system file handle on windows
+    int handle;
+#endif
 } socket_t;
 
 /* 
@@ -81,6 +85,9 @@ _setsock(lua_State *L, int fd, int family, int type, int protocol) {
     nsock->family = family;
     nsock->type = type;
     nsock->protocol = protocol;
+#ifdef _WIN32
+    nsock->handle = _open_osfhandle(fd, 0);
+#endif
 }
 
 static const char*
@@ -430,7 +437,11 @@ _sock_accept(lua_State *L) {
 static int
 _sock_fileno(lua_State *L) {
     socket_t *sock = _getsock(L, 1);
+#ifdef _WIN32
+    lua_pushinteger(L, sock->handle);
+#else
     lua_pushinteger(L, sock->fd);
+#endif
     return 1;
 }
 
