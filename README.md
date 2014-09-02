@@ -39,5 +39,5 @@ running tests
 -------------
 ```
 lua tests/test_socket.lua
-lua example/echo.lua
+lua example/dns_mass_resolve.lua
 ```
