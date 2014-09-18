@@ -5,7 +5,7 @@ levent is a lua concurrency networking library inspired by [gevent](http://www.g
 Features include:
 
 * Fast event loop based on [libev](http://libev.schmorp.de/).
-* Cooperative socket library
+* Simple and clean socket library
 * Cooperative dns client by pure lua
 * Similar api and components with gevent but with much more simpler implementation and better performance.
 
@@ -37,16 +37,15 @@ ways to build on windows, ref to [blog](http://xjdrew.github.io/blog/2014/08/28/
 
 tests
 -------------
-there are some tests and examples under ```tests``` and ```example``` to illustrate how to use levent, you can run tests and examples from root folder of levent as below.
+there are some tests and examples under ```tests``` and ```examples``` to illustrate how to use levent, you can run tests and examples from root folder of levent as below.
 
 ```
 lua tests/test_socket.lua
-lua example/dns_mass_resolve.lua
+lua examples/dns_mass_resolve.lua
 ```
 
 licence
 -------
 The MIT License (MIT)
-
 Copyright (c) 2014 xjdrew
 

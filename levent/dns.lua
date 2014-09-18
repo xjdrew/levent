@@ -200,8 +200,8 @@ local function unpack_rdata(qtype, chunk)
 end
 
 local dns = {}
-local server = "8.8.8.8"
-local port = 53
+dns.server = "8.8.8.8"
+dns.port = 53
 
 local function exception(info)
     return exceptions.DnsError.new(info)
@@ -217,7 +217,7 @@ local function request(chunk, timeout)
         sock:set_timeout(timeout)
     end
 
-    local ok, err = sock:connect(server, port)
+    local ok, err = sock:connect(dns.server, dns.port)
     if not ok then
         return nil, err
     end
@@ -233,6 +233,7 @@ local function request(chunk, timeout)
 
     -- only accept first packet, drop others
     local resp, err = sock:recv(MAX_PACKET_LEN)
+    sock:close()
     return resp, err
 end
 

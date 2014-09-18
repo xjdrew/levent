@@ -7,6 +7,8 @@ local N = 1000
 local finished = 0
 local workers = 100
 
+dns.server = "8.8.8.8"
+
 function job(q)
     while true do
         local hostname = q:get()

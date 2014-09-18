@@ -30,8 +30,11 @@ function Socket:_init(family, _type, protocol, cobj)
         assert(type(cobj.fileno) == "function", cobj)
         self.cobj = cobj
     else
+        local err
         self.cobj, err = c.socket(family, _type, protocol)
-	assert(self.cobj, err)
+        if not self.cobj then
+            error(errno.strerror(err))
+        end
     end
 
     self.cobj:setblocking(false)
