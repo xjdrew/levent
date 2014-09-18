@@ -27,14 +27,16 @@ endif()
 
 macro (add_lua_library lname)
     add_library(${lname} SHARED ${ARGN})
-    target_link_libraries(${lname} ${LUA_LIBRARIES})
+    if(WIN32)
+        target_link_libraries(${lname} ${LUA_LIBRARIES})
+    endif()
     set_target_properties(${lname} PROPERTIES PREFIX "")
     set_target_properties(${lname} PROPERTIES SUFFIX ${suffix})
 endmacro()
 
 # levent.module
 IF(NOT WIN32)
-    add_lua_library(levent levent/lua-socket.c levent/lua-errno.c levent/lua-levent.c levent/lua-ev.c)
+    add_lua_library(levent src/lua-socket.c src/lua-errno.c src/lua-levent.c src/lua-ev.c)
     target_link_libraries(levent ev)
     add_custom_command(TARGET levent
         PRE_BUILD

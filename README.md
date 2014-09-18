@@ -33,11 +33,20 @@ cmake .
 make
 ```
 
-build in windows, ref to [blog](http://xjdrew.github.io/blog/2014/08/28/compile-levent/)
+ways to build on windows, ref to [blog](http://xjdrew.github.io/blog/2014/08/28/compile-levent/)
 
-running tests
+tests
 -------------
+there are some tests and examples under ```tests``` and ```example``` to illustrate how to use levent, you can run tests and examples from root folder of levent as below.
+
 ```
 lua tests/test_socket.lua
 lua example/dns_mass_resolve.lua
 ```
+
+licence
+-------
+The MIT License (MIT)
+
+Copyright (c) 2014 xjdrew
+
