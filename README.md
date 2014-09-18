@@ -35,7 +35,25 @@ make
 
 ways to build on windows, ref to [blog](http://xjdrew.github.io/blog/2014/08/28/compile-levent/)
 
-tests
+code example
+------------
+
+levent's api is clean, below is a code example for how to run a time limit work
+
+```lua
+lua <<SCRIPT
+local levent  = require "levent.levent"
+local timeout = require "levent.timeout"
+
+function main()
+    print("work 1:", timeout.run(0.2, levent.sleep, 0.1))
+    print("work 2:", timeout.run(0.1, levent.sleep, 0.2))
+end
+levent.start(main)
+SCRIPT
+```
+
+running tests
 -------------
 there are some tests and examples under ```tests``` and ```examples``` to illustrate how to use levent, you can run tests and examples from root folder of levent as below.
 
@@ -43,6 +61,10 @@ there are some tests and examples under ```tests``` and ```examples``` to illust
 lua tests/test_socket.lua
 lua examples/dns_mass_resolve.lua
 ```
+
+documents
+---------
+coming soon~~
 
 licence
 -------
