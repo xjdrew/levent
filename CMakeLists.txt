@@ -12,6 +12,7 @@ if(NOT LUA_FOUND)
     message(FATAL_ERROR "Find lua failed")
 endif()
 
+include_directories(${LUA_INCLUDE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/deps/http-parser)
 include_directories(${LUA_INCLUDE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/deps/libev)
 link_directories(${CMAKE_CURRENT_SOURCE_DIR}/deps/libev/.libs/)
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
@@ -35,8 +36,9 @@ macro (add_lua_library lname)
 endmacro()
 
 # levent.module
+set(CSOURCE src/lua-socket.c src/lua-errno.c src/lua-levent.c src/lua-ev.c src/lua-http.c deps/http-parser/http_parser.c)
 IF(NOT WIN32)
-    add_lua_library(levent src/lua-socket.c src/lua-errno.c src/lua-levent.c src/lua-ev.c)
+    add_lua_library(levent ${CSOURCE})
     target_link_libraries(levent ev)
     add_custom_command(TARGET levent
         PRE_BUILD
@@ -44,7 +46,8 @@ IF(NOT WIN32)
         COMMAND make
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/deps/libev)
 ELSE()
-    add_lua_library(levent levent/lua-socket.c levent/lua-errno.c levent/lua-levent.c levent/lua-ev.c levent/evwrap.c)
+    set(CSOURCE $(CSOURCE) src/evwrap.c)
+    add_lua_library(levent $(CSOURCE))
 ENDIF()
 
 # levent deps module

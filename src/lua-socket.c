@@ -641,8 +641,6 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) {
 LUALIB_API int luaopen_levent_socket_c(lua_State *L) {
     luaL_checkversion(L);
 
-
-
     luaL_newmetatable(L, SOCKET_METATABLE);
     luaL_setfuncs(L, socket_mt, 0);
 
