@@ -16,10 +16,11 @@
 #define METATABLE_BUILDER_NAME(type) create_metatable_##type
 #define METATABLE_BUILDER(type, name) \
     static void METATABLE_BUILDER_NAME(type) (lua_State *L) { \
-        luaL_newmetatable(L, name); \
-        luaL_setfuncs(L, mt_##type, 0); \
-        luaL_newlib(L, methods_##type); \
-        lua_setfield(L, -2, "__index"); \
+        if(luaL_newmetatable(L, name)) { \
+            luaL_setfuncs(L, mt_##type, 0); \
+            luaL_newlib(L, methods_##type); \
+            lua_setfield(L, -2, "__index"); \
+        }\
         lua_pop(L, 1); \
     }
 

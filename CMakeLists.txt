@@ -36,7 +36,7 @@ macro (add_lua_library lname)
 endmacro()
 
 # levent.module
-set(CSOURCE src/lua-socket.c src/lua-errno.c src/lua-levent.c src/lua-ev.c src/lua-http.c deps/http-parser/http_parser.c)
+set(CSOURCE src/lua-socket.c src/lua-errno.c src/lua-levent.c src/lua-ev.c src/lua-http-parser.c deps/http-parser/http_parser.c)
 IF(NOT WIN32)
     add_lua_library(levent ${CSOURCE})
     target_link_libraries(levent ev)

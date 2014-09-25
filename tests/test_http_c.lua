@@ -1,4 +1,5 @@
 local c = require "levent.http.c"
+print("test:", c.version())
 
 local url = "http://xjdrew@example.com:8080/t/134467?uid=1827#reply22"
 local t = c.parse_url(url)

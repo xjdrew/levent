@@ -641,11 +641,12 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) {
 LUALIB_API int luaopen_levent_socket_c(lua_State *L) {
     luaL_checkversion(L);
 
-    luaL_newmetatable(L, SOCKET_METATABLE);
-    luaL_setfuncs(L, socket_mt, 0);
+    if(luaL_newmetatable(L, SOCKET_METATABLE)) {
+        luaL_setfuncs(L, socket_mt, 0);
 
-    luaL_newlib(L, socket_methods);
-    lua_setfield(L, -2, "__index");
+        luaL_newlib(L, socket_methods);
+        lua_setfield(L, -2, "__index");
+    }
     lua_pop(L, 1);
     // +end
 
