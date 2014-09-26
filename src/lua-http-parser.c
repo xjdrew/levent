@@ -9,44 +9,132 @@
 
 #define HTTP_PARSER_METATABLE "http_parser_metatable"
 
+#define FIELD_TYPE "is_request"
+#define FIELD_METHOD "method"
+#define FIELD_PATH "path"
+#define FIELD_STATUS "status"
+#define FIELD_HEADERS "headers"
+#define FIELD_BODY "body"
+#define FIELD_KEEPALIVE "keepalive"
+
 // parser cb
 static int
 on_message_begin(http_parser *parser) {
+    /* do nothing */
     return 0;
 }
 
 static int
 on_url(http_parser *parser, const char *at, size_t length) {
+    lua_State *L = (lua_State*)parser->data;
+    lua_pushlstring(L, at, length);
+    lua_setfield(L, -2, FIELD_PATH);
+
+    // only request callback on_url
+    lua_pushboolean(L, 1);
+    lua_setfield(L, -2, FIELD_TYPE);
     return 0;
 }
 
 static int
 on_status(http_parser *parser, const char *at, size_t length) {
+    /* do nothing */
     return 0;
 }
 
 static int
 on_header_field(http_parser *parser, const char *at, size_t length) {
+    lua_State *L = (lua_State*)parser->data;
+    int len = luaL_len(L, -1);
+    if(len % 2 == 0) {
+        lua_pushlstring(L, at, length);
+        lua_rawseti(L, -2, len+1);
+    } else {
+        lua_rawgeti(L, -1, len);
+        lua_pushlstring(L, at, length);
+        lua_concat(L, 2);
+        lua_rawseti(L, -2, len);
+    }
     return 0;
 }
 
 static int
 on_header_value(http_parser *parser, const char *at, size_t length) {
+    lua_State *L = (lua_State*)parser->data;
+    int len = luaL_len(L, -1);
+    if(len % 2 != 0) {
+        lua_pushlstring(L, at, length);
+        lua_rawseti(L, -2, len+1);
+    } else {
+        lua_rawgeti(L, -1, len);
+        lua_pushlstring(L, at, length);
+        lua_concat(L, 2);
+        lua_rawseti(L, -2, len);
+    }
     return 0;
 }
 
 static int
 on_headers_complete(http_parser *parser) {
+    lua_State *L;
+    int i, tidx, len, is_request;
+
+    L = (lua_State*)parser->data;
+    tidx = lua_absindex(L, -1);
+    len = luaL_len(L, tidx);
+    if(len == 0 || len % 2 != 0) {
+        return 0;
+    }
+
+    L = (lua_State*)parser->data;
+    lua_getfield(L, tidx, FIELD_HEADERS);
+    if(!lua_istable(L, -1)) {
+        lua_pop(L, 1);
+        lua_newtable(L);
+        lua_pushvalue(L, -1);
+        lua_setfield(L, tidx, FIELD_HEADERS);
+    }
+
+    for(i=1; i<len; i=i+2) {
+        lua_rawgeti(L, tidx, i); // header field
+        lua_rawgeti(L, tidx, i+1); // header value
+        lua_settable(L, -3);
+        lua_pushnil(L);
+        lua_rawseti(L, tidx, i);
+        lua_pushnil(L);
+        lua_rawseti(L, tidx, i + 1);
+    }
+    lua_pop(L, 1); // pop headers table
+
+    lua_pushboolean(L, http_should_keep_alive(parser));
+    lua_setfield(L, tidx, FIELD_KEEPALIVE);
+
+    lua_getfield(L, tidx, FIELD_TYPE);
+    is_request = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+    if(is_request) {
+        lua_pushstring(L, http_method_str(parser->method));
+        lua_setfield(L, tidx, FIELD_METHOD);
+    } else {
+        // response
+        lua_pushinteger(L, parser->status_code);
+        lua_setfield(L, tidx, FIELD_STATUS);
+    }
     return 0;
 }
 
 static int
 on_body(http_parser *parser, const char *at, size_t length) {
+    lua_State *L = (lua_State*)parser->data;
+    lua_pushlstring(L, at, length);
+    lua_setfield(L, -2, FIELD_BODY);
     return 0;
 }
 
 static int
-on_message_complete(http_parser *parser, const char *at, size_t length) {
+on_message_complete(http_parser *parser) {
+    /* parse one message once, so pause here */
+    http_parser_pause(parser, 1);
     return 0;
 }
 
@@ -120,9 +208,16 @@ lhttp_errno_description(lua_State *L) {
     return 1;
 }
 
+INLINE static http_parser*
+get_http_parser(lua_State *L, int index) {
+    http_parser *parser = (http_parser*) luaL_checkudata(L, index, HTTP_PARSER_METATABLE);
+    return parser;
+}
+
 static int lnew(lua_State *L) {
     enum http_parser_type type = luaL_optint(L, 1, HTTP_BOTH);
     http_parser *parser = (http_parser*) lua_newuserdata(L, sizeof(http_parser));
+    http_parser_init(parser, type);
     luaL_getmetatable(L, HTTP_PARSER_METATABLE);
     lua_setmetatable(L, -2);
     return 1;
@@ -138,26 +233,31 @@ static const struct luaL_Reg http_module_methods[] = {
 };
 
 static int lparser_execute(lua_State *L) {
-    return 0;
-}
+    size_t len;
+    int err;
+    http_parser *parser = get_http_parser(L, 1);
+    const char *data = luaL_checklstring(L, 2, &len);
+    size_t from = (size_t)luaL_optint(L, 3, 0);
+    luaL_checktype(L, 4, LUA_TTABLE);
 
-static int lparser_should_keep_alive(lua_State *L) {
-    return 0;
-}
+    if(len <= from) {
+        return luaL_argerror(L, 3, "should be less than length of argument #2");
+    }
 
-static int lparser_pause(lua_State *L) {
-    return 0;
-}
-
-static int lparser_body_is_final(lua_State *L) {
-    return 0;
+    parser->data = (void*)L;
+    lua_pushinteger(L, http_parser_execute(parser, &settings, data + from, len - from));
+    if(HPE_PAUSED == parser->http_errno) {
+        http_parser_pause(parser, 0);
+    }
+    if(HPE_OK == parser->http_errno) {
+        return 1;
+    }
+    lua_pushinteger(L, err);
+    return 2;
 }
 
 static const struct luaL_Reg http_parser_metamethods[] = {
     {"execute", lparser_execute},
-    {"should_keep_alive", lparser_should_keep_alive},
-    {"pause", lparser_pause},
-    {"body_is_final", lparser_body_is_final},
     {NULL, NULL}
 };
 
@@ -165,7 +265,7 @@ LUALIB_API int luaopen_levent_http_c(lua_State *L) {
     luaL_checkversion(L);
 
     if(luaL_newmetatable(L, HTTP_PARSER_METATABLE)) {
-        luaL_newlib(L, http_module_methods);
+        luaL_newlib(L, http_parser_metamethods);
         lua_setfield(L, -2, "__index");
     }
     lua_pop(L, 1);
