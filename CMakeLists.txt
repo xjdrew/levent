@@ -47,8 +47,8 @@ IF(NOT WIN32)
         COMMAND make
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/deps/libev)
 ELSE()
-    set(CSOURCE $(CSOURCE) src/evwrap.c)
-    add_lua_library(levent $(CSOURCE))
+    set(CSOURCE ${CSOURCE} src/evwrap.c)
+    add_lua_library(levent ${CSOURCE})
 ENDIF()
 
 # levent deps module

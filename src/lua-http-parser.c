@@ -225,9 +225,9 @@ lparse_url(lua_State *L) {
     size_t len;
     const char *buf;
     int port;
+    struct http_parser_url u;
 
     buf = luaL_checklstring(L, 1, &len);
-    struct http_parser_url u;
     if(http_parser_parse_url(buf, len, 0, &u) != 0) {
         return 0;
     }
