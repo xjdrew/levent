@@ -11,24 +11,38 @@
 
 #define FIELD_TYPE "is_request"
 #define FIELD_METHOD "method"
-#define FIELD_PATH "path"
+#define FIELD_REQUEST_URL "request_url"
 #define FIELD_STATUS "status"
+#define FIELD_STATUS_CODE "status_code"
 #define FIELD_HEADERS "headers"
 #define FIELD_BODY "body"
 #define FIELD_KEEPALIVE "keepalive"
+#define FIELD_UPGRADE "upgrade"
+#define FIELD_HTTP_MAJOR "http_major"
+#define FIELD_HTTP_MINOR "http_minor"
+#define FIELD_COMPLETE "complete"
 
 // parser cb
 static int
 on_message_begin(http_parser *parser) {
-    /* do nothing */
+    lua_State *L = (lua_State*)parser->data;
+    lua_pushboolean(L, 0);
+    lua_setfield(L, -2, FIELD_COMPLETE);
     return 0;
 }
 
 static int
 on_url(http_parser *parser, const char *at, size_t length) {
     lua_State *L = (lua_State*)parser->data;
-    lua_pushlstring(L, at, length);
-    lua_setfield(L, -2, FIELD_PATH);
+    lua_getfield(L, -1, FIELD_REQUEST_URL);
+    if(lua_isnil(L, -1)) {
+        lua_pop(L, 1);
+        lua_pushlstring(L, at, length);
+    } else {
+        lua_pushlstring(L, at, length);
+        lua_concat(L, 2);
+    }
+    lua_setfield(L, -2, FIELD_REQUEST_URL);
 
     // only request callback on_url
     lua_pushboolean(L, 1);
@@ -38,7 +52,16 @@ on_url(http_parser *parser, const char *at, size_t length) {
 
 static int
 on_status(http_parser *parser, const char *at, size_t length) {
-    /* do nothing */
+    lua_State *L = (lua_State*)parser->data;
+    lua_getfield(L, -1, FIELD_STATUS);
+    if(lua_isnil(L, -1)) {
+        lua_pop(L, 1);
+        lua_pushlstring(L, at, length);
+    } else {
+        lua_pushlstring(L, at, length);
+        lua_concat(L, 2);
+    }
+    lua_setfield(L, -2, FIELD_STATUS);
     return 0;
 }
 
@@ -82,7 +105,7 @@ on_headers_complete(http_parser *parser) {
     L = (lua_State*)parser->data;
     tidx = lua_absindex(L, -1);
     len = luaL_len(L, tidx);
-    if(len == 0 || len % 2 != 0) {
+    if(len % 2 != 0) {
         return 0;
     }
 
@@ -106,9 +129,24 @@ on_headers_complete(http_parser *parser) {
     }
     lua_pop(L, 1); // pop headers table
 
+    // http version
+    lua_pushinteger(L, parser->http_major);
+    lua_setfield(L, tidx, FIELD_HTTP_MAJOR);
+
+    lua_pushinteger(L, parser->http_minor);
+    lua_setfield(L, tidx, FIELD_HTTP_MINOR);
+
+    // upgrade
+    if(parser->upgrade) {
+        lua_pushboolean(L, parser->upgrade);
+        lua_setfield(L, tidx, FIELD_UPGRADE);
+    }
+
+    // keep alive
     lua_pushboolean(L, http_should_keep_alive(parser));
     lua_setfield(L, tidx, FIELD_KEEPALIVE);
 
+    // optional field
     lua_getfield(L, tidx, FIELD_TYPE);
     is_request = lua_toboolean(L, -1);
     lua_pop(L, 1);
@@ -118,7 +156,7 @@ on_headers_complete(http_parser *parser) {
     } else {
         // response
         lua_pushinteger(L, parser->status_code);
-        lua_setfield(L, tidx, FIELD_STATUS);
+        lua_setfield(L, tidx, FIELD_STATUS_CODE);
     }
     return 0;
 }
@@ -126,7 +164,14 @@ on_headers_complete(http_parser *parser) {
 static int
 on_body(http_parser *parser, const char *at, size_t length) {
     lua_State *L = (lua_State*)parser->data;
-    lua_pushlstring(L, at, length);
+    lua_getfield(L, -1, FIELD_BODY);
+    if(lua_isnil(L, -1)) {
+        lua_pop(L, 1);
+        lua_pushlstring(L, at, length);
+    } else {
+        lua_pushlstring(L, at, length);
+        lua_concat(L, 2);
+    }
     lua_setfield(L, -2, FIELD_BODY);
     return 0;
 }
@@ -134,6 +179,10 @@ on_body(http_parser *parser, const char *at, size_t length) {
 static int
 on_message_complete(http_parser *parser) {
     /* parse one message once, so pause here */
+    lua_State *L = (lua_State*)parser->data;
+    lua_pushboolean(L, 1);
+    lua_setfield(L, -2, FIELD_COMPLETE);
+
     http_parser_pause(parser, 1);
     return 0;
 }
@@ -182,8 +231,8 @@ lparse_url(lua_State *L) {
     lua_createtable(L, 0, UF_MAX);
     set_url_field(L, "schema", UF_SCHEMA, &u, buf, -2);
     set_url_field(L, "host", UF_HOST, &u, buf, -2);
-    set_url_field(L, "path", UF_PATH, &u, buf, -2);
-    set_url_field(L, "query", UF_QUERY, &u, buf, -2);
+    set_url_field(L, "request_path", UF_PATH, &u, buf, -2);
+    set_url_field(L, "query_string", UF_QUERY, &u, buf, -2);
     set_url_field(L, "fragment", UF_FRAGMENT, &u, buf, -2);
     set_url_field(L, "userinfo", UF_USERINFO, &u, buf, -2);
 
