@@ -99,11 +99,54 @@ on_header_value(http_parser *parser, const char *at, size_t length) {
 
 static int
 on_headers_complete(http_parser *parser) {
+    int is_request;
+    lua_State *L = (lua_State*)parser->data;
+    // http version
+    lua_pushinteger(L, parser->http_major);
+    lua_setfield(L, -2, FIELD_HTTP_MAJOR);
+
+    lua_pushinteger(L, parser->http_minor);
+    lua_setfield(L, -2, FIELD_HTTP_MINOR);
+
+    // optional field
+    lua_getfield(L, -1, FIELD_TYPE);
+    is_request = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+    if(is_request) {
+        lua_pushstring(L, http_method_str(parser->method));
+        lua_setfield(L, -2, FIELD_METHOD);
+    } else {
+        // response
+        lua_pushinteger(L, parser->status_code);
+        lua_setfield(L, -2, FIELD_STATUS_CODE);
+    }
+    return 0;
+}
+
+static int
+on_body(http_parser *parser, const char *at, size_t length) {
+    lua_State *L = (lua_State*)parser->data;
+    lua_getfield(L, -1, FIELD_BODY);
+    if(lua_isnil(L, -1)) {
+        lua_pop(L, 1);
+        lua_pushlstring(L, at, length);
+    } else {
+        lua_pushlstring(L, at, length);
+        lua_concat(L, 2);
+    }
+    lua_setfield(L, -2, FIELD_BODY);
+    return 0;
+}
+
+static int
+on_message_complete(http_parser *parser) {
     lua_State *L;
-    int i, tidx, len, is_request;
+    int i, tidx, len;
 
     L = (lua_State*)parser->data;
     tidx = lua_absindex(L, -1);
+
+    // compose headers
     len = luaL_len(L, tidx);
     if(len % 2 != 0) {
         return 0;
@@ -129,13 +172,6 @@ on_headers_complete(http_parser *parser) {
     }
     lua_pop(L, 1); // pop headers table
 
-    // http version
-    lua_pushinteger(L, parser->http_major);
-    lua_setfield(L, tidx, FIELD_HTTP_MAJOR);
-
-    lua_pushinteger(L, parser->http_minor);
-    lua_setfield(L, tidx, FIELD_HTTP_MINOR);
-
     // upgrade
     if(parser->upgrade) {
         lua_pushboolean(L, parser->upgrade);
@@ -146,43 +182,10 @@ on_headers_complete(http_parser *parser) {
     lua_pushboolean(L, http_should_keep_alive(parser));
     lua_setfield(L, tidx, FIELD_KEEPALIVE);
 
-    // optional field
-    lua_getfield(L, tidx, FIELD_TYPE);
-    is_request = lua_toboolean(L, -1);
-    lua_pop(L, 1);
-    if(is_request) {
-        lua_pushstring(L, http_method_str(parser->method));
-        lua_setfield(L, tidx, FIELD_METHOD);
-    } else {
-        // response
-        lua_pushinteger(L, parser->status_code);
-        lua_setfield(L, tidx, FIELD_STATUS_CODE);
-    }
-    return 0;
-}
-
-static int
-on_body(http_parser *parser, const char *at, size_t length) {
-    lua_State *L = (lua_State*)parser->data;
-    lua_getfield(L, -1, FIELD_BODY);
-    if(lua_isnil(L, -1)) {
-        lua_pop(L, 1);
-        lua_pushlstring(L, at, length);
-    } else {
-        lua_pushlstring(L, at, length);
-        lua_concat(L, 2);
-    }
-    lua_setfield(L, -2, FIELD_BODY);
-    return 0;
-}
-
-static int
-on_message_complete(http_parser *parser) {
-    /* parse one message once, so pause here */
-    lua_State *L = (lua_State*)parser->data;
     lua_pushboolean(L, 1);
-    lua_setfield(L, -2, FIELD_COMPLETE);
+    lua_setfield(L, tidx, FIELD_COMPLETE);
 
+    /* parse one message once, so pause here */
     http_parser_pause(parser, 1);
     return 0;
 }
