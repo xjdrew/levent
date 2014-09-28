@@ -286,13 +286,12 @@ static const struct luaL_Reg http_module_methods[] = {
 
 static int lparser_execute(lua_State *L) {
     size_t len;
-    int err;
     http_parser *parser = get_http_parser(L, 1);
     const char *data = luaL_checklstring(L, 2, &len);
     size_t from = (size_t)luaL_optint(L, 3, 0);
     luaL_checktype(L, 4, LUA_TTABLE);
 
-    if(len <= from) {
+    if(len < from) {
         return luaL_argerror(L, 3, "should be less than length of argument #2");
     }
 
@@ -304,7 +303,7 @@ static int lparser_execute(lua_State *L) {
     if(HPE_OK == parser->http_errno) {
         return 1;
     }
-    lua_pushinteger(L, err);
+    lua_pushinteger(L, parser->http_errno);
     return 2;
 }
 
