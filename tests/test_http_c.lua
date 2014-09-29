@@ -1,16 +1,6 @@
 local c = require "levent.http.c"
 print("test:", c.version())
 
-local url = "http://xjdrew@example.com:8080/t/134467?uid=1827#reply22"
-local t = c.parse_url(url)
-assert(t.schema == "http")
-assert(t.userinfo == "xjdrew")
-assert(t.host == "example.com")
-assert(t.port == 8080)
-assert(t.request_path == "/t/134467")
-assert(t.query_string == "uid=1827")
-assert(t.fragment == "reply22")
-
 local requests = {
     {
         name = "curl get",
@@ -1184,6 +1174,18 @@ local responses = {
     }
 }
 
+local function test_parse_url()
+    local url = "http://xjdrew@example.com:8080/t/134467?uid=1827#reply22"
+    local t = c.parse_url(url)
+    assert(t.schema == "http")
+    assert(t.userinfo == "xjdrew")
+    assert(t.host == "example.com")
+    assert(t.port == 8080)
+    assert(t.request_path == "/t/134467")
+    assert(t.query_string == "uid=1827")
+    assert(t.fragment == "reply22")
+end
+
 local function message_eq(msg, ret)
     assert(ret.complete, msg.name)
     assert(msg.http_major == ret.http_major, msg.name)
@@ -1232,40 +1234,145 @@ local function test_message(msg)
     message_eq(msg, ret)
 end
 
-local function test_messages(raw)
-    local parser = c.new()
-    local from = 0
-    while true do
-        local ret = {}
-        local traversed, err = parser:execute(raw, from, ret)
-        if not err then
-            for k,v in pairs(ret) do
-                print("-", k,v)
-            end
+local function count_parsed_messages(...)
+    for i, m in ipairs({...}) do
+        if m.upgrade then
+            return i
+        end
+    end
+    return select('#', ...)
+end
 
-            if ret.headers then
-                print("headers ---------:")
-                for k,v in pairs(ret.headers) do
-                    print("+", k,v)
-                end
-            end
-        end
-        from = traversed + from
-        if err or from >= #raw then
-            break
-        end
+local function test_multiple(...)
+    local message_count = count_parsed_messages(...)
+    local msgs = {...}
+    local raw = ""
+    for i=1,message_count do
+        raw = raw .. msgs[i].raw
+    end
+    local from = 0
+    local parser = c.new()
+    local rets = {}
+    for i =1, message_count do
+        local ret = {}
+        local parsed, err = parser:execute(raw, from, ret)
+        assert(not err, msgs[i].name)
+        table.insert(rets, ret)
+        from = from + parsed
+    end
+    if msgs[message_count].message_complete_on_eof then
+        parser:execute("", nil, rets[message_count])
+    end
+    assert(#rets == message_count, msgs[message_count].name)
+    for i =1, message_count do
+        message_eq(msgs[i], rets[i])
     end
 end
 
-for i, request in ipairs(requests) do
-    test_message(request)
-    print("request:", i, "pass")
+local function test_scan(...)
+    local message_count = count_parsed_messages(...)
+    local msgs = {...}
+    local raw = ""
+    for i=1,message_count do
+        raw = raw .. msgs[i].raw
+    end
+
+    local parser = c.new()
+    local rets = {}
+    local ret
+    for i=1, #raw do
+        if not ret then
+            ret = {}
+        end
+        if ret.complete then
+            table.insert(rets, ret)
+            ret = {}
+            if #rets == message_count then
+                break
+            end
+        end
+        local count = #rets + 1
+        local input = raw:sub(i, i)
+        local _, err = parser:execute(input, nil, ret)
+        assert(not err, msgs[count].name)
+    end
+    if msgs[message_count].message_complete_on_eof then
+        parser:execute("", nil, ret)
+    end
+    if ret.complete then
+        table.insert(rets, ret)
+    end
+    assert(#rets == message_count, msgs[message_count].name)
+    for i =1, message_count do
+        message_eq(msgs[i], rets[i])
+    end
 end
 
-for i, response in ipairs(responses) do
-    test_message(response)
-    print("response:", i, "pass")
+local function test_messages(messages, tag)
+    local count = 0
+    local width = 6
+    io.write(string.format("test multiple %s:%10d", tag, 0))
+    for i in ipairs(messages) do
+        if messages[i].keepalive then
+            for j in ipairs(messages) do
+                if messages[j].keepalive then
+                    for k in ipairs(messages) do
+                        test_multiple(messages[i], messages[j], messages[k])
+                        count = count + 1
+                        io.write(string.format("%s%6d", string.rep("\b", width), count))
+                        io.flush()
+                        -- print(string.format("multiple %s %d %d %d", tag, i,j,k), "pass")
+                    end
+                end
+            end
+        end
+    end
+    io.write("\n")
 end
+
+local function test_messages_scan(messages, tag)
+    local count = 0
+    local width = 6
+    io.write(string.format("test scan multiple %s:%6d", tag, 0))
+    for i in ipairs(messages) do
+        if messages[i].keepalive then
+            for j in ipairs(messages) do
+                if messages[j].keepalive then
+                    for k in ipairs(messages) do
+                        test_scan(messages[i], messages[j], messages[k])
+                        count = count + 1
+                        io.write(string.format("%s%6d", string.rep("\b", width), count))
+                        io.flush()
+                        -- print(string.format("scan %s %d %d %d", tag, i,j,k), "pass")
+                    end
+                end
+            end
+        end
+    end
+    io.write("\n")
+end
+
+local function main()
+    test_parse_url()
+
+    for i, request in ipairs(requests) do
+        test_message(request)
+        print("request:", i, "pass")
+    end
+
+    for i, response in ipairs(responses) do
+        test_message(response)
+        print("response:", i, "pass")
+    end
+
+    test_messages(responses, "response")
+    test_messages(requests, "request")
+
+    test_messages_scan(responses, "response")
+    test_messages_scan(requests, "request")
+end
+
 --test_messages(requests[1].raw .. requests[1].raw)
-
+main()
 print("test pass")
+
