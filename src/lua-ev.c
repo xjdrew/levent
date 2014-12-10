@@ -69,6 +69,7 @@ static void watcher_cb(struct ev_loop *loop, void *w, int revents) {
 
     assert(L != NULL);
     assert(lua_isfunction(L, traceback));
+    assert(lua_isfunction(L, traceback - 2));
     lua_pushvalue(L, traceback - 2); // function
     lua_pushvalue(L, traceback - 1); // ud
     lua_pushlightuserdata(L, (void*)w);
@@ -78,7 +79,7 @@ static void watcher_cb(struct ev_loop *loop, void *w, int revents) {
     if(r == LUA_OK) {
         return;
     }
-    LOG("watcher(%p) callback failed, errcode:%d, msg: %s", w, r, lua_tostring(L, -1));
+    LOG("watcher(%p) event:%x, callback failed, errcode:%d, msg: %s", w, revents, r, lua_tostring(L, -1));
     lua_pop(L, 1);
     return;
 }

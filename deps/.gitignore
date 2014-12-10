@@ -9,4 +9,5 @@ libev/event.o
 libev/libev.la
 libev/libtool
 libev/stamp-h1
+libev/.deps
 

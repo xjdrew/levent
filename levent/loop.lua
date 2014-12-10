@@ -77,8 +77,9 @@ function Loop:_init()
     self.cobj:unref()
 end
 
-function Loop:run(nowait, once)
-    self.cobj:run(0, self.callback, self)
+function Loop:run(--[[nowait, once]])
+    local flags = 0
+    self.cobj:run(flags, self.callback, self)
 end
 
 function Loop:_break(how)
