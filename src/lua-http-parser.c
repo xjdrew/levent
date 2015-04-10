@@ -213,7 +213,7 @@ lversion(lua_State *L) {
 
 INLINE static void
 set_url_field(lua_State *L, const char* field, enum http_parser_url_fields uf, 
-        struct http_parser_url *u, const char* buf, int index) {
+    struct http_parser_url *u, const char* buf, int index) {
     if(u->field_set & (1 << uf)) {
         lua_pushlstring(L, buf + u->field_data[uf].off, u->field_data[uf].len);
         lua_setfield(L, index, field);
@@ -224,11 +224,17 @@ static int
 lparse_url(lua_State *L) {
     size_t len;
     const char *buf;
-    int port;
+    int is_connect, port;
     struct http_parser_url u;
 
     buf = luaL_checklstring(L, 1, &len);
-    if(http_parser_parse_url(buf, len, 0, &u) != 0) {
+    if (lua_gettop(L) > 1) {
+        is_connect = lua_toboolean(L, 2);
+    } else {
+        is_connect = 0;
+    }
+
+    if(http_parser_parse_url(buf, len, is_connect, &u) != 0) {
         return 0;
     }
     lua_createtable(L, 0, UF_MAX);

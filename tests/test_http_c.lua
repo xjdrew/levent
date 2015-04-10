@@ -1177,6 +1177,7 @@ local responses = {
 local function test_parse_url()
     local url = "http://xjdrew@example.com:8080/t/134467?uid=1827#reply22"
     local t = c.parse_url(url)
+    assert(t, "parse url failed:" .. url)
     assert(t.schema == "http")
     assert(t.userinfo == "xjdrew")
     assert(t.host == "example.com")

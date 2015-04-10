@@ -75,6 +75,9 @@ local exceptions = require "levent.exceptions"
 local pack = string.pack
 local unpack = string.unpack
 
+local dns_host = "8.8.8.8"
+local dns_port = 53
+
 local MAX_DOMAIN_LEN = 1024
 local MAX_LABEL_LEN = 63
 local MAX_PACKET_LEN = 2048
@@ -89,21 +92,6 @@ local QTYPE = {
 local QCLASS = {
     IN = 1,
 }
-
-local function verify_domain_name(name)
-    if #name > MAX_DOMAIN_LEN then
-        return false
-    end
-    if not name:match("^[%l%d-%.]+$") then
-        return false
-    end
-    for w in name:gmatch("([%w-]+)%.?") do
-        if #w > MAX_LABEL_LEN then
-            return false
-        end
-    end
-    return true
-end
 
 local next_tid = 1
 local function gen_tid()
@@ -200,10 +188,6 @@ local function unpack_rdata(qtype, chunk)
     end
 end
 
-local dns = {}
-dns.server = "8.8.8.8"
-dns.port = 53
-
 local function exception(info)
     return exceptions.DnsError.new(info)
 end
@@ -218,7 +202,7 @@ local function request(chunk, timeout)
         sock:set_timeout(timeout)
     end
 
-    local ok, err = sock:connect(dns.server, dns.port)
+    local ok, err = sock:connect(dns_host, dns_port)
     if not ok then
         return nil, err
     end
@@ -269,17 +253,37 @@ local function set_cache(qtype, name, ttl, data)
     end
 end
 
-function dns.resolve(name, ipv6, timeout)
+local function is_valid_hostname(name)
+    if #name > MAX_DOMAIN_LEN then
+        return false
+    end
+
+    if not name:match("^[%l%d-%.]+$") then
+        return false
+    end
+
+    local seg
+    for w in name:gmatch("([%w-]+)%.?") do
+        if #w > MAX_LABEL_LEN then
+            return false
+        end
+        seg = w
+    end
+
+    -- last segment can't be a number
+    if seg:match("([%d]+)%.?") then
+        return false
+    end
+    return true
+end
+
+local function dns_resolve(name, ipv6, timeout)
     local qtype = ipv6 and QTYPE.AAAA or QTYPE.A
     local name = name:lower()
 
     local ret = query_cache(qtype, name)
     if ret then
         return ret
-    end
-
-    if not verify_domain_name(name) then
-        return nil, exception("illegal name")
     end
 
     local question_header = {
@@ -337,5 +341,24 @@ function dns.resolve(name, ipv6, timeout)
     set_cache(qtype, name, ttl, answers)
     return answers
 end
+
+local dns = {}
+-- set your preferred dns server or use default
+function dns.set_server(host, port)
+    dns_host = host
+    dns_port = port
+end
+
+function dns.resolve(name, ipv6, timeout)
+    if not is_valid_hostname(name) then
+        local ip = socket.normalize_ip(name, ipv6)
+        if ip then
+            return {ip}
+        end
+        return nil, exception("illegal name")
+    end
+    return dns_resolve(name, ipv6, timeout)
+end
+
 return dns
 

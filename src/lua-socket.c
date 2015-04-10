@@ -178,12 +178,13 @@ _socket(lua_State *L) {
     return 1;
 }
 
+// deprecated: may hang up, use dns.resolve for cooperative dns query
 static int
 _resolve(lua_State *L) {
     const char* host = luaL_checkstring(L, 1);
     struct addrinfo *res = 0;
 	int err, i;
-	char buf[64];
+	char buf[sizeof(struct in6_addr)];
 
     struct addrinfo hints;
     memset(&hints, 0, sizeof(hints));
@@ -210,6 +211,27 @@ _resolve(lua_State *L) {
         }
         res = res->ai_next;
     }
+    return 1;
+}
+
+static int
+_normalize_ip(lua_State *L) {
+    char buf[sizeof(struct in6_addr)];
+    char str[INET6_ADDRSTRLEN];
+    const char* host = luaL_checkstring(L, 1);
+    int ipv6 = lua_toboolean(L, 2);
+    int domain = ipv6?AF_INET6:AF_INET;
+
+    if (inet_pton(domain, host, buf) <= 0) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    if(inet_ntop(domain, buf, str, INET6_ADDRSTRLEN) == NULL) {
+        lua_pushnil(L);
+        return 1;
+    }
+    lua_pushstring(L, str);
     return 1;
 }
 
@@ -265,7 +287,6 @@ _sock_connect(lua_State *L) {
 
 static int
 _sock_recv(lua_State *L) {
-	
     socket_t *sock = _getsock(L, 1);
     size_t len = (lua_Unsigned)luaL_checkinteger(L, 2);
 	int nread;
@@ -610,6 +631,7 @@ static const struct luaL_Reg socket_methods[] = {
 static const struct luaL_Reg socket_module_methods[] = {
     {"socket", _socket},
     {"resolve", _resolve},
+    {"normalize_ip", _normalize_ip},
     {NULL, NULL}
 };
 

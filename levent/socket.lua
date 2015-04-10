@@ -210,15 +210,9 @@ function Socket:close()
 end
 
 local socket = {}
-for k,v in pairs(c) do
-    if type(v) ~= "function" then
-        socket[k] = v
-    end
-end
-
 function socket.socket(family, type, protocol)
     return Socket.new(family, type, protocol)
 end
 
-return socket
+return setmetatable(socket, {__index = c} )
 

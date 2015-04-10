@@ -15,7 +15,7 @@ levent is licensed under MIT license.
 get levent
 -----------
 
-Install lua 5.3 or newer(for lua5.2 and below, see branch lua5.2).
+Install lua 5.3 or newer(for lua5.2 and older, see branch lua5.2).
 
 Clone [the repository](https://github.com/xjdrew/levent).
 
@@ -38,7 +38,7 @@ ways to build on windows, ref to [blog](http://xjdrew.github.io/blog/2014/08/28/
 code example
 ------------
 
-levent's api is clean, below is a code example for how to run a time limit work
+levent's api is clean, to start a time limit work is as simple as below:
 
 ```lua
 lua <<SCRIPT
