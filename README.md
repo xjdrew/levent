@@ -15,7 +15,7 @@ levent is licensed under MIT license.
 get levent
 -----------
 
-Install lua 5.2 or newer.
+Install lua 5.3 or newer(for lua5.2 and below, see branch lua5.2).
 
 Clone [the repository](https://github.com/xjdrew/levent).
 

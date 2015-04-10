@@ -53,7 +53,3 @@ ELSE()
     set(CSOURCE ${CSOURCE} src/evwrap.c)
     add_lua_library(levent ${CSOURCE})
 ENDIF()
-
-# levent deps module
-add_lua_library(struct deps/struct/struct.c)
-

@@ -68,10 +68,12 @@
 --  string rdata
 -- }
 --]]
-local struct     = require "struct"
 local levent     = require "levent.levent"
 local socket     = require "levent.socket"
 local exceptions = require "levent.exceptions"
+
+local pack = string.pack
+local unpack = string.unpack
 
 local MAX_DOMAIN_LEN = 1024
 local MAX_LABEL_LEN = 63
@@ -111,21 +113,20 @@ local function gen_tid()
 end
 
 local function pack_header(t)
-    return struct.pack(">HHHHHH", t.tid, t.flags, t.qdcount, t.ancount or 0, t.nscount or 0, t.arcount or 0)
+    return pack(">HHHHHH", t.tid, t.flags, t.qdcount, t.ancount or 0, t.nscount or 0, t.arcount or 0)
 end
 
 local function pack_question(name, qtype, qclass)
     local labels = {}
     for w in name:gmatch("([%w-]+)%.?") do
-        labels[#labels + 1] = string.char(#w)
-        labels[#labels + 1] = w
+        labels[#labels + 1] = string.pack("s1", w)
     end
-    labels[#labels + 1] = string.char(0)
-    return struct.pack(">c0HH", table.concat(labels), qtype, qclass)
+    --labels[#labels + 1] = string.char(0)
+    return pack(">zHH", table.concat(labels), qtype, qclass)
 end
 
 local function unpack_header(chunk)
-    local tid, flags, qdcount, ancount, nscount, arcount, left = struct.unpack(">HHHHHH", chunk)
+    local tid, flags, qdcount, ancount, nscount, arcount, left = unpack(">HHHHHH", chunk)
     return {
         tid = tid,
         flags = flags,
@@ -142,10 +143,10 @@ local function unpack_name(chunk, left)
     local jump_pointer
     local tag, offset, label
     while true do
-        tag, left = struct.unpack("B", chunk, left)
+        tag, left = unpack("B", chunk, left)
         if bit32.band(tag, 0xc0) == 0xc0 then
             -- pointer
-            offset,left = struct.unpack(">H", chunk, left - 1)
+            offset,left = unpack(">H", chunk, left - 1)
             offset = bit32.band(offset, 0x3fff)
             if not jump_pointer then
                 jump_pointer = left
@@ -155,7 +156,7 @@ local function unpack_name(chunk, left)
         elseif tag == 0 then
             break
         else
-            label, left = struct.unpack("Bc0", chunk, left - 1)
+            label, left = unpack("s1", chunk, left - 1)
             t[#t+1] = label
         end
     end
@@ -165,7 +166,7 @@ end
 local function unpack_question(chunk, left)
     local name, atype, class
     name, left = unpack_name(chunk, left)
-    atype, class, left = struct.unpack(">HH", chunk, left)
+    atype, class, left = unpack(">HH", chunk, left)
     return {
         name = name,
         atype = atype, 
@@ -176,7 +177,7 @@ end
 local function unpack_answer(chunk, left)
     local tag, name, atype, class, ttl, rdata
     name, left = unpack_name(chunk, left)
-    atype, class, ttl, rdata, left = struct.unpack(">HHI4Hc0", chunk, left)
+    atype, class, ttl, rdata, left = unpack(">HHI4s2", chunk, left)
     return {
         name = name,
         atype = atype,
@@ -189,10 +190,10 @@ end
 -- a 32bit internet address
 local function unpack_rdata(qtype, chunk)
     if qtype == QTYPE.A then
-        local a,b,c,d = struct.unpack("BBBB", chunk)
+        local a,b,c,d = unpack("BBBB", chunk)
         return string.format("%d.%d.%d.%d", a,b,c,d)
     elseif qtype == QTYPE.AAAA then
-        local a,b,c,d,e,f,g,h = struct.unpack(">HHHHHHHH", chunk)
+        local a,b,c,d,e,f,g,h = unpack(">HHHHHHHH", chunk)
         return string.format("%x:%x:%x:%x:%x:%x:%x:%x", a, b, c, d, e, f, g, h)
     else
         assert(nil, qtype)
