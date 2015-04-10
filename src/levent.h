@@ -17,7 +17,7 @@
 
 INLINE static void
 _add_unsigned_constant(lua_State *L, const char* name, unsigned int value) {
-    lua_pushunsigned(L, value);
+    lua_pushinteger(L, value);
     lua_setfield(L, -2, name);
 }
 

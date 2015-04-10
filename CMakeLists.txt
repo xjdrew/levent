@@ -2,6 +2,9 @@ cmake_minimum_required (VERSION 2.8)
 project(Levent)
 include(cmake/dist.cmake) 
 
+#set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0 -ggdb")
+#set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -save-temps")
+
 #message("name:${CMAKE_SYSTEM_NAME}")
 #message("linker flags:${CMAKE_SHARED_LINKER_FLAGS}")
 #message("compiler: ${CMAKE_C_COMPILER}")

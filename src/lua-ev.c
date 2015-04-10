@@ -98,14 +98,14 @@ static int ev_version(lua_State *L) {
  * loop function
  */
 static int default_loop(lua_State *L) {
-    unsigned int flags = luaL_optunsigned(L, 1, EVFLAG_AUTO);
+    unsigned int flags = (unsigned int)luaL_optinteger(L, 1, EVFLAG_AUTO);
     struct ev_loop *loop = ev_default_loop(flags);
     setloop(L, loop);
     return 1;
 }
 
 static int new_loop(lua_State *L) {
-    unsigned int flags = luaL_optunsigned(L, 1, EVFLAG_AUTO);
+    unsigned int flags = (unsigned int)luaL_optinteger(L, 1, EVFLAG_AUTO);
     struct ev_loop *loop = ev_loop_new(flags);
     setloop(L, loop);
     return 1;
@@ -144,29 +144,29 @@ static int loop_tostring(lua_State *L) {
     }
 
 // void ev_*(loop, arg1)
-#define LOOP_METHOD_VOID_ARG_ARG(name, carg, larg) \
+#define LOOP_METHOD_VOID_ARG_ARG(name, carg) \
     static int loop_##name(lua_State *L) { \
         loop_t *lo = get_loop(L, 1); \
-        carg a1 = luaL_check##larg(L, 2); \
+        carg a1 = luaL_checkinteger(L, 2); \
         ev_##name(lo->loop, a1); \
         return 0; \
     }
 
 // int/unsigned/boolean/number ev_*(loop, arg1)
-#define LOOP_METHOD_RET_ARG_ARG(name, type, carg, larg) \
+#define LOOP_METHOD_RET_ARG_ARG(name, type, carg) \
     static int loop_##name(lua_State *L) { \
         loop_t *lo = get_loop(L, 1); \
-        carg a1 = luaL_check##larg(L, 2); \
+        carg a1 = luaL_checkinteger(L, 2); \
         lua_push##type(L, ev_##name(lo->loop, a1)); \
         return 1; \
     }
 
 #define LOOP_METHOD_BOOL(name) LOOP_METHOD_RET(name, boolean)
 #define LOOP_METHOD_INT(name) LOOP_METHOD_RET(name, integer)
-#define LOOP_METHOD_UNSIGNED(name) LOOP_METHOD_RET(name, unsigned)
+#define LOOP_METHOD_UNSIGNED(name) LOOP_METHOD_RET(name, integer)
 #define LOOP_METHOD_DOUBLE(name) LOOP_METHOD_RET(name, number)
-#define LOOP_METHOD_VOID_INT(name) LOOP_METHOD_VOID_ARG_ARG(name, int, int)
-#define LOOP_METHOD_BOOL_INT(name) LOOP_METHOD_RET_ARG_ARG(name, boolean, int, int)
+#define LOOP_METHOD_VOID_INT(name) LOOP_METHOD_VOID_ARG_ARG(name, int)
+#define LOOP_METHOD_BOOL_INT(name) LOOP_METHOD_RET_ARG_ARG(name, boolean, int)
 
 LOOP_METHOD_VOID(loop_fork)
 LOOP_METHOD_BOOL(is_default_loop)
@@ -192,7 +192,7 @@ LOOP_METHOD_UNSIGNED(pending_count)
 static int loop_run(lua_State *L) {
     struct ev_loop *loop;
     loop_t *lo = get_loop(L, 1);
-    int flags = luaL_checkint(L, 2);
+    int flags = luaL_checkinteger(L, 2);
     luaL_checktype(L, 3, LUA_TFUNCTION);
     luaL_checkany(L, 4);
     lua_pushcfunction(L, traceback);
@@ -297,7 +297,7 @@ static const struct luaL_Reg methods_loop[] = {
 #define WATCHER_SET_PRIORITY(type) \
     static int type##_set_priority(lua_State *L) { \
         ev_##type *w = get_##type(L, 1); \
-        int priority = luaL_checkint(L, 2); \
+        int priority = luaL_checkinteger(L, 2); \
         ev_set_priority(w, priority); \
         return 0; \
     }
@@ -337,8 +337,8 @@ WATCHER_COMMON_METHODS(io)
 
 static int io_init(lua_State *L) {
     ev_io *w = get_io(L, 1);
-    int fd = luaL_checkint(L, 2);
-    int revents = luaL_checkint(L, 3);
+    int fd = luaL_checkinteger(L, 2);
+    int revents = luaL_checkinteger(L, 3);
     ev_io_init(w, watcher_cb, fd, revents);
     return 0;
 }
@@ -387,7 +387,7 @@ WATCHER_COMMON_METHODS(signal)
 
 static int signal_init(lua_State *L) {
     ev_signal *w = get_signal(L, 1);
-    int signum = luaL_checkint(L, 2);
+    int signum = luaL_checkinteger(L, 2);
     ev_signal_init(w, watcher_cb, signum);
     return 0;
 }

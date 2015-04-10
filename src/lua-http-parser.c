@@ -240,7 +240,7 @@ lparse_url(lua_State *L) {
     set_url_field(L, "userinfo", UF_USERINFO, &u, buf, -2);
 
     if(u.port != 0) {
-        lua_pushunsigned(L, u.port);
+        lua_pushinteger(L, u.port);
         lua_setfield(L, -2, "port");
     }
     return 1;
@@ -248,14 +248,14 @@ lparse_url(lua_State *L) {
 
 static int
 lhttp_errno_name(lua_State *L) {
-    int err = luaL_checkint(L, 1);
+    int err = luaL_checkinteger(L, 1);
     lua_pushstring(L, http_errno_name(err));
     return 1;
 }
 
 static int
 lhttp_errno_description(lua_State *L) {
-    int err = luaL_checkint(L, 1);
+    int err = luaL_checkinteger(L, 1);
     lua_pushstring(L, http_errno_description(err));
     return 1;
 }
@@ -267,7 +267,7 @@ get_http_parser(lua_State *L, int index) {
 }
 
 static int lnew(lua_State *L) {
-    enum http_parser_type type = luaL_optint(L, 1, HTTP_BOTH);
+    enum http_parser_type type = luaL_optinteger(L, 1, HTTP_BOTH);
     http_parser *parser = (http_parser*) lua_newuserdata(L, sizeof(http_parser));
     http_parser_init(parser, type);
     luaL_getmetatable(L, HTTP_PARSER_METATABLE);
@@ -288,7 +288,7 @@ static int lparser_execute(lua_State *L) {
     size_t len;
     http_parser *parser = get_http_parser(L, 1);
     const char *data = luaL_checklstring(L, 2, &len);
-    size_t from = (size_t)luaL_optint(L, 3, 0);
+    size_t from = (size_t)luaL_optinteger(L, 3, 0);
     luaL_checktype(L, 4, LUA_TTABLE);
 
     if(len < from) {
