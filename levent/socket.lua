@@ -170,6 +170,7 @@ function Socket:sendall(data, from)
         end
         sent = sent + nwrite
     end
+    return sent
 end
 
 function Socket:connect(ip, port)

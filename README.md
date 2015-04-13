@@ -42,13 +42,31 @@ levent's api is clean, to start a time limit work is as simple as below:
 
 ```lua
 lua <<SCRIPT
-local levent  = require "levent.levent"
-local timeout = require "levent.timeout"
+local levent = require "levent.levent"
+local http   = require "levent.http"
+
+local urls = {
+    "http://www.google.com",
+    "http://yahoo.com",
+    "http://example.com",
+    "http://qq.com",
+}
+
+function request(url)
+    local response, err = http.get(url)
+    if not response then
+        print(url, "error:", err)
+    else
+        print(url, response:get_code())
+    end
+end
 
 function main()
-    print("work 1:", timeout.run(0.2, levent.sleep, 0.1))
-    print("work 2:", timeout.run(0.1, levent.sleep, 0.2))
+    for _, url in ipairs(urls) do
+        levent.spawn(request, url)
+    end
 end
+
 levent.start(main)
 SCRIPT
 ```
