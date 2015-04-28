@@ -38,7 +38,7 @@ ways to build on windows, ref to [blog](http://xjdrew.github.io/blog/2014/08/28/
 code example
 ------------
 
-levent's api is clean, to start a time limit work is as simple as below:
+levent's api is clean, to request http concurrently is as simple as below:
 
 ```lua
 lua <<SCRIPT
