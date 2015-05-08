@@ -41,6 +41,9 @@ endmacro()
 
 # levent.module
 set(CSOURCE src/lua-socket.c src/lua-errno.c src/lua-levent.c src/lua-ev.c src/lua-http-parser.c deps/http-parser/http_parser.c)
+set(CMONGO src/lua-mongo.c)
+set(CBSON  src/lua-bson.c)
+
 IF(NOT WIN32)
     add_lua_library(levent ${CSOURCE})
     target_link_libraries(levent ev)
@@ -49,7 +52,11 @@ IF(NOT WIN32)
         COMMAND CFLAGS=-fPIC ./configure --enable-shared=no
         COMMAND make
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/deps/libev)
+    add_lua_library(mongo ${CMONGO})
+    add_lua_library(bson  ${CBSON})
 ELSE()
     set(CSOURCE ${CSOURCE} src/evwrap.c)
     add_lua_library(levent ${CSOURCE})
+    add_lua_library(mongo ${CMONGO})
+    add_lua_library(bson  ${CBSON})
 ENDIF()
