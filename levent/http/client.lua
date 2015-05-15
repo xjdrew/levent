@@ -1,6 +1,7 @@
 local socketUtil = require "levent.socket_util"
 local c          = require "levent.http.c"
 local response   = require "levent.http.response"
+local httpUtil   = require "levent.http.util"
 
 local client = {}
 client.__index = client
@@ -34,44 +35,18 @@ end
 function client:get_response()
     assert(self.conn, "not connected")
     if not self.parser then
-        self.parser = c.new()
+        self.parser = c.new(c.HTTP_RESPONSE)
     end
 
-    local ret = {}
-    local raw = {}
-    while not ret.complete do
-        local parsed, s, err
-        if self.cached then
-            s = self.cached
-        else
-            s , err = self.conn:recv(4096)
-            if not s then
-                self:close()
-                return nil, err
-            end
-        end
-
-        parsed, err = self.parser:execute(s, nil, ret)
-        if err then
-            self:close()
-            return nil, c.http_errno_name(err)
-        end
-
-        -- socket closed by peer
-        if #s == 0 then
-            break
-        end
-
-        if parsed < #s then
-            table.insert(raw, s:sub(1, parsed))
-            self.cached = s:sub(parsed+1)
-        else
-            table.insert(raw, s)
-        end
+    local msg, left, raw = httpUtil.read_message(self.conn, self.parser, self.cached)
+    if not msg then
+        self.conn:close()
+        return nil, left
     end
+    msg.raw_response = raw
 
-    ret.raw_response = table.concat(raw)
-    return response.new(ret)
+    self.cached = left
+    return response.new(msg)
 end
 
 function client:close()

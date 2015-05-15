@@ -1,5 +1,6 @@
 local c       = require "levent.http.c"
 local client  = require "levent.http.client"
+local server  = require "levent.http.server"
 local request = require "levent.http.request"
 local config  = require "levent.http.config"
 
@@ -54,6 +55,13 @@ function http.post(url, body, headers)
         return nil, err
     end
     return send_request(request)
+end
+
+function http.server(ip, port)
+    if not ip then
+        ip = "0.0.0.0"
+    end
+    return server.new(ip, port)
 end
 return http
 

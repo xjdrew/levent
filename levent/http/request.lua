@@ -10,6 +10,7 @@ function request.new(host, port)
     obj.headers = {
         ["HOST"] = host,
         ["USER-AGENT"] = config.HTTP_AGENT,
+        ["ACCEPT"] = "*/*",
     }
     return setmetatable(obj, request)
 end

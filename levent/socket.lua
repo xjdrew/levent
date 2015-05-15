@@ -25,18 +25,9 @@ end
 
 local Socket = class("Socket")
 
-function Socket:_init(family, _type, protocol, cobj)
-    if cobj then
-        assert(type(cobj.fileno) == "function", cobj)
-        self.cobj = cobj
-    else
-        local err
-        self.cobj, err = c.socket(family, _type, protocol)
-        if not self.cobj then
-            error(errno.strerror(err))
-        end
-    end
-
+function Socket:_init(cobj)
+    assert(type(cobj.fileno) == "function", cobj)
+    self.cobj = cobj
     self.cobj:setblocking(false)
     local loop = hub.loop
     self._read_event = loop:io(self.cobj:fileno(), loop.EV_READ)
@@ -63,11 +54,19 @@ end
 
 function Socket:bind(ip, port)
     self.cobj:setsockopt(c.SOL_SOCKET, c.SO_REUSEADDR, 1)
-    return self.cobj:bind(ip, port)
+    local ok, code = self.cobj:bind(ip, port)
+    if not ok then
+        return false, errno.strerror(code)
+    end
+    return true
 end
 
 function Socket:listen(backlog)
-    return self.cobj:listen(backlog)
+    local ok, code = self.cobj:listen(backlog)
+    if not ok then
+        return false, errno.strerror(code)
+    end
+    return true
 end
 
 function Socket:_need_block(err) 
@@ -91,7 +90,7 @@ function Socket:accept()
         end
 
         if not self:_need_block(err) then
-            return nil, err
+            return nil, errno.strerror(err)
         end
 
         local ok, exception = _wait(self._read_event, self.timeout)
@@ -99,7 +98,7 @@ function Socket:accept()
             return nil, exception
         end
     end
-    return Socket.new(nil, nil, nil, csock)
+    return Socket.new(csock)
 end
 
 function Socket:_recv(func, ...)
@@ -211,8 +210,12 @@ function Socket:close()
 end
 
 local socket = {}
-function socket.socket(family, type, protocol)
-    return Socket.new(family, type, protocol)
+function socket.socket(family, _type, protocol)
+    local cobj, err = c.socket(family, _type, protocol)
+    if not cobj then
+        return nil, errno.strerror(err)
+    end
+    return Socket.new(cobj)
 end
 
 return setmetatable(socket, {__index = c} )

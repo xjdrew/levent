@@ -20,4 +20,24 @@ function util.create_connection(host, port, timeout)
     end
     return sock
 end
+
+function util.listen(ip, port)
+    local sock, err= socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    if not sock then
+        return nil, err
+    end
+
+    local ok, err = sock:bind(ip, port)
+    if not ok then
+        return nil, err
+    end
+
+    local ok, err = sock:listen()
+    if not ok then
+        return nil, err
+    end
+    return sock
+end
+
 return util
+

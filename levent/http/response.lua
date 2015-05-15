@@ -17,7 +17,7 @@ function response:get_headers()
     return self.headers
 end
 
-function response:get_payload()
+function response:get_data()
     return self.body
 end
 
@@ -30,3 +30,4 @@ function response:get_raw()
 end
 
 return response
+
