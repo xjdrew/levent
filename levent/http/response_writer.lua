@@ -91,13 +91,13 @@ function response_writer:pack()
     end
 
     for k,v in pairs(self.headers) do
-        table.insert(t, string.format("%s: %s", k, tostring(v)))
+        t[#t+1] = string.format("%s: %s", k, tostring(v))
     end
 
     if len > 0 then
-        table.insert(t, "\r\n" .. self.data)
+        t[#t + 1] = "\r\n" .. self.data
     else
-        table.insert(t, "\r\n")
+        t[#t + 1] = "\r\n"
     end
     return table.concat(t, "\r\n")
 end

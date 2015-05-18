@@ -33,6 +33,16 @@ function Hub:wait(watcher)
     end
 end
 
+function Hub:_cancel_wait(watcher, err)
+    if not watcher:is_active() then
+        return
+    end
+end
+
+function Hub:cancel_wait(watcher, err)
+    self.loop:run_callback(self._cancel_wait, self, watcher, err)
+end
+
 function Hub:switch(co, value)
     local waiter = assert(self.waiters[co], co)
     waiter:switch(value)

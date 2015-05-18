@@ -42,4 +42,43 @@ function util.canonical_header_key(key)
     return key:lower():gsub("%f[^\0%-]%l",string.upper)
 end
 
+local function escape(s)
+    return s:gsub("[^a-zA-Z0-9-_.~]", function(c) 
+        return string.format("%%%02x",string.byte(c)) 
+    end)
+end
+
+local function unescape(s)
+    return s:gsub("%%%x%x", function(ss) 
+        return string.char(tonumber("0x" .. ss:sub(2))) 
+    end)
+end
+
+function util.parse_query_string(s, t)
+    if not s then
+        return
+    end
+
+    for k,v in s:gmatch("([^&;]+)=([^&;]+)") do
+        if #k > 0 then
+            t[unescape(k)] = unescape(v)
+        end
+    end
+end
+
+function util.encode_query_string(t)
+    if not t then
+        return ""
+    end
+
+    local tt = {}
+    for k,v in pairs(t) do
+        tt[#tt + 1] = string.format("%s=%s",escape(k),escape(v))
+    end
+    return table.concat(tt, "&")
+end
+
+util.escape = escape
+util.unescape = unescape
 return util
+

@@ -1,6 +1,8 @@
 local config = require "levent.http.config"
+local util   = require "levent.http.util"
 
-local methods = config.HTTP_METHODS
+local methods  = config.HTTP_METHODS
+local parse_query_string = util.parse_query_string
 
 local request_reader = {}
 request_reader.__index = request_reader
@@ -17,18 +19,6 @@ request_reader.__index = request_reader
 -- }
 function request_reader.new(msg)
     return setmetatable(msg, request_reader)
-end
-
-local function parse_query_string(s, t)
-    if not s then
-        return
-    end
-
-    for k,v in s:gmatch("([^&;]+)=([^&;]+)") do
-        if #k > 0 then
-            t[k] = v
-        end
-    end
 end
 
 -- query form
@@ -54,6 +44,7 @@ function request_reader:get_args()
     if self.query_string then
         parse_query_string(self.query_string, self.args)
     end
+
     local forms = self:get_form()
     for k, v in pairs(forms) do
         self.args[k] = v
@@ -62,3 +53,4 @@ function request_reader:get_args()
 end
 
 return request_reader
+

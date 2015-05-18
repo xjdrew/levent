@@ -93,18 +93,27 @@ function server:handle_conn(conn)
 end
 
 function server:serve()
-    local sock, err = socketUtil.listen(self.ip, self.port)
-    if not sock then
+    local ln, err = socketUtil.listen(self.ip, self.port)
+    if not ln then
         return false, err
     end
 
-    while true do
-        local conn, err = sock:accept()
+    self.ln = ln
+    while self.ln do
+        local conn, err = ln:accept()
         if conn then
             levent.spawn(self.handle_conn, self, conn)
         end
     end
     return true
+end
+
+function server:close()
+    if self.ln then
+        local ln = self.ln
+        self.ln = nil
+        ln:close()
+    end
 end
 
 return server

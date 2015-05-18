@@ -206,6 +206,7 @@ function Socket:setsockopt(level, optname, value)
 end
 
 function Socket:close()
+
     self.cobj:close()
 end
 

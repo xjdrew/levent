@@ -1,24 +1,44 @@
-local config   = require "levent.http.config"
-local httpUtil = require "levent.http.util"
+local c      = require "levent.http.c"
+local config = require "levent.http.config"
+local util   = require "levent.http.util"
 
-local http_methods = config.HTTP_METHODS
+local methods = config.HTTP_METHODS
+local encode_query_string = util.encode_query_string
 
 local request = {}
 request.__index = request
-function request.new(host, port)
+function request.new(method, url, data, headers)
+    local parsed = c.parse_url(url)
+    if not parsed then
+        return nil, "invalid url:"..url
+    end
+
+    if not parsed.host then
+        return nil, "no host given"
+    end
+
+    assert(parsed.schema:upper() == config.HTTP_SCHEMA, "only support http protocal")
+
     local obj = {}
-    obj.host = host
-    obj.port = port or config.HTTP_PORT
+    obj.host = parsed.host
+    obj.port = parsed.port or config.HTTP_PORT
+    obj.method = method
+    obj.path = parsed.request_path
+    obj.query_string = parsed.query_string
+    obj.data = data
     obj.headers = {
-        ["HOST"] = host,
-        ["USER-AGENT"] = config.HTTP_AGENT,
-        ["ACCEPT"] = "*/*",
+        ["Host"] = host,
+        ["User-Agent"] = config.HTTP_AGENT,
+        ["Accept"] = "*/*",
     }
-    return setmetatable(obj, request)
+
+    local req = setmetatable(obj, request)
+    req:add_headers(headers)
+    return req
 end
 
 function request:set_method(method)
-    assert(http_methods[method], method)
+    assert(methods[method], method)
     self.method = method
 end
 
@@ -28,10 +48,10 @@ function request:get_method(method)
     end
 
     if self.data then
-        return http_methods.POST
+        return methods.POST
     end
 
-    return http_methods.GET
+    return methods.GET
 end
 
 -- request path
@@ -43,11 +63,11 @@ function request:set_query_string(query_string)
     self.query_string = query_string
 end
 
--- request payload if post, type(payload) == "string"
-function request:set_payload(payload)
-    if not payload then return end
-    assert(type(payload) == "string", type(payload))
-    self.payload = payload
+-- request data if post, type(data) == "string"
+function request:set_data(data)
+    if not data then return end
+    assert(type(data) == "string", type(data))
+    self.data = data
 end
 
 function request:add_headers(headers)
@@ -67,7 +87,14 @@ function request:pack()
         path = string.format("%s?%s", path, self.query_string)
     end
 
-    local len = self.payload and #self.payload or 0
+    local payload
+    if type(self.data) == "table" then
+        payload = encode_query_string(self.data)
+    else
+        payload = self.data
+    end
+
+    local len = payload and #payload or 0
     local ct = "Content-Length"
     if len > 0 and not self.headers[ct] then
         self.headers[ct] = len
@@ -79,10 +106,11 @@ function request:pack()
         t[#t + 1] = string.format("%s: %s", k, v)
     end
 
-    if self.payload then
-        t[#t + 1] = self.payload
+    if len > 0 then
+        t[#t + 1] = "\r\n" .. payload
+    else
+        t[#t + 1] = "\r\n"
     end
-    t[#t + 1] = "\r\n"
     return table.concat(t, "\r\n")
 end
 
