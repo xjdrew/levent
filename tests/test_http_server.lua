@@ -4,7 +4,7 @@ local http   = require "levent.http"
 function hello(response, request)
     local name = request:get_args()["name"] or "world"
     response:set_data(string.format("hello, %s", name))
-    response:add_header("header1", "value1")
+    response:set_header("header1", "value1")
 end
 
 function main()

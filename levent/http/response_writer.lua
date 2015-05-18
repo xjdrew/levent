@@ -1,4 +1,5 @@
-local config = require "levent.http.config"
+local config   = require "levent.http.config"
+local httpUtil = require "levent.http.util"
 
 local response_writer = {}
 response_writer.__index = response_writer
@@ -50,14 +51,16 @@ function response_writer.new()
     return setmetatable({headers = {}}, response_writer)
 end
 
-function response_writer:add_header(header, value)
-    self.headers[header:upper()] = value
+function response_writer:set_header(header, value)
+    local field = httpUtil.canonical_header_key(header)
+    self.headers[field] = v
 end
 
-function response_writer:add_headers(headers)
+function response_writer:set_headers(headers)
     if not headers then return end
     for k,v in pairs(headers) do
-        self.headers[k:upper()] = v
+        local field = httpUtil.canonical_header_key(k)
+        self.headers[field] = v
     end
 end
 
@@ -74,21 +77,23 @@ function response_writer:pack()
     local code = self.code or 200
     local t = {}
     t[1] = string.format("%s/%s %d %s", config.HTTP_SCHEMA, config.HTTP_VERSION, code, http_status_msg[code])
-    for k,v in pairs(self.headers) do
-        table.insert(t, string.format("%s: %s", k, v))
-    end
 
-    table.insert(t, string.format("Date: %s", os.date("!%a, %d %b %Y %H:%M:%S GMT"))) -- rfc1123-date
-    local cl = "CONTENT-TYPE"
+    self.headers["Date"] = os.date("!%a, %d %b %Y %H:%M:%S GMT") -- rfc1123-date
+    local cl = "Content-Type"
     if not self.headers[cl] then
-        table.insert(t, string.format("%s: %s", cl, "text/plain"))
+        self.headers[cl] = "text/plain"
     end
 
     local len = self.data and #self.data or 0
-    local ct = "CONTENT-LENGTH"
+    local ct = "Content-Length"
     if len > 0 and not self.headers[ct] then
-        table.insert(t, string.format("%s: %d", ct, len))
+        self.headers[ct] = len
     end
+
+    for k,v in pairs(self.headers) do
+        table.insert(t, string.format("%s: %s", k, tostring(v)))
+    end
+
     if len > 0 then
         table.insert(t, "\r\n" .. self.data)
     else

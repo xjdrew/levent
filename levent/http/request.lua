@@ -1,4 +1,6 @@
-local config = require "levent.http.config"
+local config   = require "levent.http.config"
+local httpUtil = require "levent.http.util"
+
 local http_methods = config.HTTP_METHODS
 
 local request = {}
@@ -51,7 +53,8 @@ end
 function request:add_headers(headers)
     if not headers then return end
     for k,v in pairs(headers) do
-        self.headers[k:upper()] = v
+        local field = util.canonical_header_key(k)
+        self.headers[field] = v
     end
 end
 
@@ -64,8 +67,10 @@ function request:pack()
         path = string.format("%s?%s", path, self.query_string)
     end
 
-    if self.payload then
-        self.headers["CONTENT-LENGTH"] = #self.payload
+    local len = self.payload and #self.payload or 0
+    local ct = "Content-Length"
+    if len > 0 and not self.headers[ct] then
+        self.headers[ct] = len
     end
 
     local t = {}

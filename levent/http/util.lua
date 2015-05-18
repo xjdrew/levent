@@ -37,4 +37,9 @@ function util.read_message(conn, parser, left)
     -- return raw msg at last
     return msg, left, table.concat(raw)
 end
+
+function util.canonical_header_key(key)
+    return key:lower():gsub("%f[^\0%-]%l",string.upper)
+end
+
 return util

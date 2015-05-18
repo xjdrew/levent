@@ -9,6 +9,7 @@ config.HTTP_AGENT = "levent/1.0"
 config.HTTP_ABS_PATH = "/"
 
 -- supported methods
+-- http methods is case-sensitive
 config.HTTP_METHODS = {
     OPTIONS = "OPTIONS",
     GET     = "GET",
