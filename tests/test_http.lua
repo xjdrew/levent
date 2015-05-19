@@ -2,11 +2,6 @@ local levent = require "levent.levent"
 local lock   = require "levent.lock"
 local http   = require "levent.http"
 
-local urls = {
-    "http://www.google.com",
-    "http://yahoo.com",
-}
-
 local port = 8080
 local httpd
 
