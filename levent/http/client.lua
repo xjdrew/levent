@@ -1,7 +1,7 @@
 local socketUtil = require "levent.socket_util"
 local c          = require "levent.http.c"
 local response   = require "levent.http.response"
-local httpUtil   = require "levent.http.util"
+local util       = require "levent.http.util"
 
 local client = {}
 client.__index = client
@@ -38,7 +38,7 @@ function client:get_response()
         self.parser = c.new(c.HTTP_RESPONSE)
     end
 
-    local msg, left, raw = httpUtil.read_message(self.conn, self.parser, self.cached)
+    local msg, left, raw = util.read_message(self.conn, self.parser, self.cached)
     if not msg then
         self.conn:close()
         return nil, left

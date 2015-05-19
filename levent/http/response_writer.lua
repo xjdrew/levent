@@ -1,5 +1,7 @@
-local config   = require "levent.http.config"
-local httpUtil = require "levent.http.util"
+local config = require "levent.http.config"
+local util = require "levent.http.util"
+
+local encode_query_string = util.encode_query_string
 
 local response_writer = {}
 response_writer.__index = response_writer
@@ -52,14 +54,14 @@ function response_writer.new()
 end
 
 function response_writer:set_header(header, value)
-    local field = httpUtil.canonical_header_key(header)
+    local field = util.canonical_header_key(header)
     self.headers[field] = v
 end
 
 function response_writer:set_headers(headers)
     if not headers then return end
     for k,v in pairs(headers) do
-        local field = httpUtil.canonical_header_key(k)
+        local field = util.canonical_header_key(k)
         self.headers[field] = v
     end
 end
@@ -84,9 +86,16 @@ function response_writer:pack()
         self.headers[cl] = "text/plain"
     end
 
-    local len = self.data and #self.data or 0
+    local payload
+    if type(self.data) == "table" then
+        payload = encode_query_string(self.data)
+    else
+        payload = self.data
+    end
+    local len = payload and #payload or 0
+
     local ct = "Content-Length"
-    if len > 0 and not self.headers[ct] then
+    if not self.headers[ct] then
         self.headers[ct] = len
     end
 
@@ -95,7 +104,7 @@ function response_writer:pack()
     end
 
     if len > 0 then
-        t[#t + 1] = "\r\n" .. self.data
+        t[#t + 1] = "\r\n" .. payload
     else
         t[#t + 1] = "\r\n"
     end

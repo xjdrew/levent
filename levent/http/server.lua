@@ -104,6 +104,10 @@ function server:serve()
         if conn then
             levent.spawn(self.handle_conn, self, conn)
         end
+
+        if err then
+            print("accept error:", err)
+        end
     end
     return true
 end

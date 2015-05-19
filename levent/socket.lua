@@ -10,6 +10,14 @@ local class   = require "levent.class"
 local hub     = require "levent.hub"
 local timeout = require "levent.timeout"
 
+local closed_socket = setmetatable({}, {__index = function(t, key)
+    if key == "send" or key == "recv" or key=="sendto" or key == "recvfrom" or key == "accept" then
+        return function(...)
+            return nil, errno.EBADF
+        end
+    end
+end})
+
 local function _wait(watcher, sec)
     local t
     if sec and sec > 0 then
@@ -206,8 +214,12 @@ function Socket:setsockopt(level, optname, value)
 end
 
 function Socket:close()
-
-    self.cobj:close()
+    if self.cobj ~= closed_socket then
+        hub:cancel_wait(self._read_event)
+        hub:cancel_wait(self._write_event)
+        self.cobj:close()
+        self.cobj = closed_socket
+    end
 end
 
 local socket = {}

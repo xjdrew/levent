@@ -8,6 +8,8 @@ local unique = c.unique
 local Waiter = class("Waiter")
 local Hub = class("Hub")
 
+local cancel_wait_error = exceptions.CancelWaitError.new()
+
 function Hub:_init()
     local co, main = coroutine.running()
     assert(main, "must in main coroutine")
@@ -23,7 +25,7 @@ end
 function Hub:wait(watcher)
     local waiter = self:waiter()
     local uuid = unique()
-    watcher:start(waiter.switch, waiter, uuid)
+    watcher:start(waiter, uuid)
     local ok, val = pcall(waiter.get, waiter)
     watcher:stop()
     if ok then
@@ -37,6 +39,10 @@ function Hub:_cancel_wait(watcher, err)
     if not watcher:is_active() then
         return
     end
+    if not class.isinstance(watcher._cb, Waiter) then
+        return
+    end
+    watcher._cb:throw(err or cancel_wait_error)
 end
 
 function Hub:cancel_wait(watcher, err)
@@ -82,6 +88,7 @@ function Waiter:_init(hub)
 end
 
 function Waiter:_switch(value, exception)
+    assert(not exception or exceptions.is_exception(exception), exception)
     assert(self.exception == false)
     self.value = value
     self.exception = exception
@@ -100,8 +107,12 @@ function Waiter:switch(value)
 end
 
 function Waiter:throw(exception)
-    assert(exceptions.is_exception(exception), exception)
     self:_switch(nil, exception)
+end
+
+-- for 
+function Waiter:__call(value)
+    self:_switch(value, nil)
 end
 
 function Waiter:get()

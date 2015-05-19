@@ -1,3 +1,6 @@
+local util = require "levent.http.util"
+
+local parse_query_string = util.parse_query_string
 local response = {}
 response.__index = response
 
@@ -19,6 +22,17 @@ end
 
 function response:get_data()
     return self.body
+end
+
+function response:get_args()
+    if self.args then
+        return self.args
+    end
+    self.args = {}
+    if self.body then
+        parse_query_string(self.body, self.args)
+    end
+    return self.args
 end
 
 function response:get_version()

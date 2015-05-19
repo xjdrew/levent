@@ -73,6 +73,9 @@ function util.encode_query_string(t)
 
     local tt = {}
     for k,v in pairs(t) do
+        if type(v) ~= "string" then
+            v = tostring(v)
+        end
         tt[#tt + 1] = string.format("%s=%s",escape(k),escape(v))
     end
     return table.concat(tt, "&")

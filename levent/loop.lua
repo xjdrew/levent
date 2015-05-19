@@ -19,6 +19,7 @@ function Watcher:_init(name, loop, ...)
     self.cobj = w
 
     self._cb = nil
+    self._args = nil
 end
 
 function Watcher:id()
@@ -27,17 +28,29 @@ end
 
 function Watcher:start(func, ...)
     assert(self._cb == nil, self.cobj)
-    self._cb = callback(func, ...)
+
+    self._cb = func
+    if select("#", ...) > 0 then
+        self._args = {...}
+    end
     self.cobj:start(self.loop.cobj)
 end
 
 function Watcher:stop()
     self._cb = nil
+    self._args = nil
+
     self.cobj:stop(self.loop.cobj)
 end
 
 function Watcher:run_callback(revents)
-    local ok, msg = xpcall(self._cb, debug.traceback, revents)
+    -- unused revents
+    local ok, msg
+    if self._args then
+        ok, msg = xpcall(self._cb, debug.traceback, table.unpack(self._args))
+    else
+        ok, msg = xpcall(self._cb, debug.traceback)
+    end
     if not ok then
         self.loop:handle_error(self, msg)
     end
