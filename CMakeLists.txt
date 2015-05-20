@@ -60,3 +60,7 @@ ELSE()
     add_lua_library(mongo ${CMONGO})
     add_lua_library(bson  ${CBSON})
 ENDIF()
+
+# levent deps module
+add_lua_library(struct deps/struct/struct.c)
+
