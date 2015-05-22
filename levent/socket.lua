@@ -10,6 +10,14 @@ local class   = require "levent.class"
 local hub     = require "levent.hub"
 local timeout = require "levent.timeout"
 
+local closed_socket = setmetatable({}, {__index = function(t, key)
+    if key == "send" or key == "recv" or key=="sendto" or key == "recvfrom" or key == "accept" then
+        return function(...)
+            return nil, errno.EBADF
+        end
+    end
+end})
+
 local function _wait(watcher, sec)
     local t
     if sec and sec > 0 then
@@ -25,18 +33,9 @@ end
 
 local Socket = class("Socket")
 
-function Socket:_init(family, _type, protocol, cobj)
-    if cobj then
-        assert(type(cobj.fileno) == "function", cobj)
-        self.cobj = cobj
-    else
-        local err
-        self.cobj, err = c.socket(family, _type, protocol)
-        if not self.cobj then
-            error(errno.strerror(err))
-        end
-    end
-
+function Socket:_init(cobj)
+    assert(type(cobj.fileno) == "function", cobj)
+    self.cobj = cobj
     self.cobj:setblocking(false)
     local loop = hub.loop
     self._read_event = loop:io(self.cobj:fileno(), loop.EV_READ)
@@ -63,11 +62,19 @@ end
 
 function Socket:bind(ip, port)
     self.cobj:setsockopt(c.SOL_SOCKET, c.SO_REUSEADDR, 1)
-    return self.cobj:bind(ip, port)
+    local ok, code = self.cobj:bind(ip, port)
+    if not ok then
+        return false, errno.strerror(code)
+    end
+    return true
 end
 
 function Socket:listen(backlog)
-    return self.cobj:listen(backlog)
+    local ok, code = self.cobj:listen(backlog)
+    if not ok then
+        return false, errno.strerror(code)
+    end
+    return true
 end
 
 function Socket:_need_block(err) 
@@ -91,7 +98,7 @@ function Socket:accept()
         end
 
         if not self:_need_block(err) then
-            return nil, err
+            return nil, errno.strerror(err)
         end
 
         local ok, exception = _wait(self._read_event, self.timeout)
@@ -99,7 +106,7 @@ function Socket:accept()
             return nil, exception
         end
     end
-    return Socket.new(nil, nil, nil, csock)
+    return Socket.new(csock)
 end
 
 function Socket:_recv(func, ...)
@@ -170,6 +177,7 @@ function Socket:sendall(data, from)
         end
         sent = sent + nwrite
     end
+    return sent
 end
 
 function Socket:connect(ip, port)
@@ -206,19 +214,22 @@ function Socket:setsockopt(level, optname, value)
 end
 
 function Socket:close()
-    self.cobj:close()
-end
-
-local socket = {}
-for k,v in pairs(c) do
-    if type(v) ~= "function" then
-        socket[k] = v
+    if self.cobj ~= closed_socket then
+        hub:cancel_wait(self._read_event)
+        hub:cancel_wait(self._write_event)
+        self.cobj:close()
+        self.cobj = closed_socket
     end
 end
 
-function socket.socket(family, type, protocol)
-    return Socket.new(family, type, protocol)
+local socket = {}
+function socket.socket(family, _type, protocol)
+    local cobj, err = c.socket(family, _type, protocol)
+    if not cobj then
+        return nil, errno.strerror(err)
+    end
+    return Socket.new(cobj)
 end
 
-return socket
+return setmetatable(socket, {__index = c} )
 

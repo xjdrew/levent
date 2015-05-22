@@ -213,7 +213,7 @@ lversion(lua_State *L) {
 
 INLINE static void
 set_url_field(lua_State *L, const char* field, enum http_parser_url_fields uf, 
-        struct http_parser_url *u, const char* buf, int index) {
+    struct http_parser_url *u, const char* buf, int index) {
     if(u->field_set & (1 << uf)) {
         lua_pushlstring(L, buf + u->field_data[uf].off, u->field_data[uf].len);
         lua_setfield(L, index, field);
@@ -224,11 +224,17 @@ static int
 lparse_url(lua_State *L) {
     size_t len;
     const char *buf;
-    int port;
+    int is_connect, port;
     struct http_parser_url u;
 
     buf = luaL_checklstring(L, 1, &len);
-    if(http_parser_parse_url(buf, len, 0, &u) != 0) {
+    if (lua_gettop(L) > 1) {
+        is_connect = lua_toboolean(L, 2);
+    } else {
+        is_connect = 0;
+    }
+
+    if(http_parser_parse_url(buf, len, is_connect, &u) != 0) {
         return 0;
     }
     lua_createtable(L, 0, UF_MAX);
@@ -240,7 +246,7 @@ lparse_url(lua_State *L) {
     set_url_field(L, "userinfo", UF_USERINFO, &u, buf, -2);
 
     if(u.port != 0) {
-        lua_pushunsigned(L, u.port);
+        lua_pushinteger(L, u.port);
         lua_setfield(L, -2, "port");
     }
     return 1;
@@ -248,14 +254,14 @@ lparse_url(lua_State *L) {
 
 static int
 lhttp_errno_name(lua_State *L) {
-    int err = luaL_checkint(L, 1);
+    int err = luaL_checkinteger(L, 1);
     lua_pushstring(L, http_errno_name(err));
     return 1;
 }
 
 static int
 lhttp_errno_description(lua_State *L) {
-    int err = luaL_checkint(L, 1);
+    int err = luaL_checkinteger(L, 1);
     lua_pushstring(L, http_errno_description(err));
     return 1;
 }
@@ -267,7 +273,7 @@ get_http_parser(lua_State *L, int index) {
 }
 
 static int lnew(lua_State *L) {
-    enum http_parser_type type = luaL_optint(L, 1, HTTP_BOTH);
+    enum http_parser_type type = luaL_optinteger(L, 1, HTTP_BOTH);
     http_parser *parser = (http_parser*) lua_newuserdata(L, sizeof(http_parser));
     http_parser_init(parser, type);
     luaL_getmetatable(L, HTTP_PARSER_METATABLE);
@@ -288,7 +294,7 @@ static int lparser_execute(lua_State *L) {
     size_t len;
     http_parser *parser = get_http_parser(L, 1);
     const char *data = luaL_checklstring(L, 2, &len);
-    size_t from = (size_t)luaL_optint(L, 3, 0);
+    size_t from = (size_t)luaL_optinteger(L, 3, 0);
     luaL_checktype(L, 4, LUA_TTABLE);
 
     if(len < from) {

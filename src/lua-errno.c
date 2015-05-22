@@ -30,7 +30,7 @@
 #endif
 
 static int lstrerror(lua_State *L) {
-    int errnum = luaL_checkint(L, 1);
+    int errnum = (int)luaL_checkinteger(L, 1);
     lua_pushstring(L, strerror(errnum));
     return 1;
 }

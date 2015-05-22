@@ -15,6 +15,9 @@ end
 local function run()
     resolve("www.google.com", true)
     resolve("www.google.com")
+    resolve("114.114.114.114")
+    resolve("0:0:0:0:0:FFFF:204.152.189.116", true)
+    resolve("a.114.114.114")
 end
 
 levent.start(run)
