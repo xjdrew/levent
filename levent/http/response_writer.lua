@@ -55,7 +55,7 @@ end
 
 function response_writer:set_header(header, value)
     local field = util.canonical_header_key(header)
-    self.headers[field] = v
+    self.headers[field] = value
 end
 
 function response_writer:set_headers(headers)
