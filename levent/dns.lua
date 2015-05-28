@@ -106,7 +106,7 @@ end
 
 local function pack_question(name, qtype, qclass)
     local labels = {}
-    for w in name:gmatch("([%w-]+)%.?") do
+    for w in name:gmatch("([%w%-_)]+)%.?") do
         labels[#labels + 1] = string.pack("s1", w)
     end
     --labels[#labels + 1] = string.char(0)
