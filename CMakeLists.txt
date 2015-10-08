@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 2.8)
 project(Levent)
-include(cmake/dist.cmake) 
+include(config.cmake) 
 
 #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0 -ggdb")
 #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -save-temps")
@@ -8,13 +8,6 @@ include(cmake/dist.cmake)
 #message("name:${CMAKE_SYSTEM_NAME}")
 #message("linker flags:${CMAKE_SHARED_LINKER_FLAGS}")
 #message("compiler: ${CMAKE_C_COMPILER}")
-
-#find lua
-find_package(Lua)
-if(NOT LUA_FOUND)
-    message(FATAL_ERROR "Find lua failed")
-endif()
-
 include_directories(${LUA_INCLUDE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/deps/http-parser)
 include_directories(${LUA_INCLUDE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/deps/libev)
 link_directories(${CMAKE_CURRENT_SOURCE_DIR}/deps/libev/.libs/)

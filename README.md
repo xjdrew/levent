@@ -26,8 +26,9 @@ Post feedback and issues on the [bug tracker](https://github.com/xjdrew/levent/i
 
 build
 ------
-need cmake 2.8 or newer.
+Need cmake 2.8 or newer.
 
+Modify cmake.config properly and then run:
 ```
 cmake .
 make
