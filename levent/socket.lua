@@ -189,7 +189,10 @@ function Socket:connect(ip, port)
         if self.timeout == 0.0 or (err ~= errno.EINPROGRESS and err ~= errno.EWOULDBLOCK) then
             return ok, err
         end
-        return _wait(self._write_event, self.timeout)
+        local ok, exception = _wait(self._write_event, self.timeout)
+        if not ok then
+            return nil, exception
+        end
     end
 end
 
