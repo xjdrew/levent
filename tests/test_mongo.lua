@@ -1,5 +1,5 @@
 local levent = require"levent.levent"
-local mongo  = require"levent.mongo"
+local mongo  = require"ext.mongo"
 
 function prompt(msg)
     print("::", msg)
@@ -13,6 +13,14 @@ function main()
     print("find:", db.mydata:findOne({id = 1}).name)
     levent.spawn(prompt, "hello world")
     print("find:", db.mydata:findOne({id = 2}).name)
+
+    db.mydata:batch_insert({
+        {name = "lihua", id = 9},
+        {name = "hanmeimei", id = 10},
+    })
+
+    assert(db.mydata:findOne({id=9}).name == "lihua")
+    assert(db.mydata:findOne({id=10}).name == "hanmeimei")
 end
 
 levent.start(main)
