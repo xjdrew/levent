@@ -1,6 +1,11 @@
 cmake_minimum_required (VERSION 2.8)
 project(Levent)
-include(config.cmake) 
+
+set(levent_cmake "config.cmake")
+if (EXISTS $ENV{LEVENT_CMAKE})
+    set(levent_cmake $ENV{LEVENT_CMAKE})
+endif()
+include(${levent_cmake})
 
 #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0 -ggdb")
 #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -save-temps")
