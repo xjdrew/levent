@@ -2,22 +2,26 @@ local levent = require "levent.levent"
 local http   = require "levent.http"
 
 local urls = {
-    "http://www.google.com",
-    "http://yahoo.com",
+    "http://example.com",
+    "http://qq.com",
 }
 
 function request(url)
+    print("++++++++++++ request:", url)
     local response, err = http.get(url)
     if not response then
         print(url, "error:", err)
     else
         print("-------------------", url, "-------------------")
         print("code:", response:get_code())
-        --print(response:get_raw())
         local headers = response:get_headers()
-        for k,v in pairs(headers) do
-            print(k, "--->", v)
+        if headers then
+            for k,v in pairs(headers) do
+                print(k, "--->", v)
+            end
         end
+        print("------------ body -----------------------------")
+        print(response:get_data())
         print("------------------- end -------------------")
     end
 end

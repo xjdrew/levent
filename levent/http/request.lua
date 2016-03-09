@@ -27,7 +27,7 @@ function request.new(method, url, data, headers)
     obj.query_string = parsed.query_string
     obj.data = data
     obj.headers = {
-        ["Host"] = host,
+        ["Host"] = parsed.host,
         ["User-Agent"] = config.HTTP_AGENT,
         ["Accept"] = "*/*",
     }

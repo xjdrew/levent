@@ -75,7 +75,7 @@ local exceptions = require "levent.exceptions"
 local pack = string.pack
 local unpack = string.unpack
 
-local dns_host = "8.8.8.8"
+local dns_host = "223.5.5.5"
 local dns_port = 53
 
 local MAX_DOMAIN_LEN = 1024
