@@ -9,7 +9,10 @@ function util.create_connection(host, port, timeout)
     end
 
     local ip = ret[1]
-    local sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    local sock, err = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    if not sock then
+        return nil, err --maybe: Too many open files
+    end
     if timeout then
         sock:set_timeout(timeout)
     end
