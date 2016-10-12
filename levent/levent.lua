@@ -4,8 +4,13 @@
 --]]
 local hub        = require "levent.hub"
 local coroutines = require "levent.coroutines"
+local exceptions = require "levent.exceptions"
+
+local kill_error = exceptions.KillError.new()
 
 local levent = {}
+
+levent.kill_error = kill_error
 
 function levent.now()
     return hub.loop:now()
@@ -53,6 +58,11 @@ levent.check_coroutine = coroutines.check
 function levent.spawn(f, ...)
     local co = coroutines.create(f)
     hub.loop:run_callback(assert_resume, co, ...)
+    return co
+end
+
+function levent.kill(co)
+    hub.loop:run_callback(hub.throw, hub, co, kill_error)
 end
 
 function levent.start(f, ...)

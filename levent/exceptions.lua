@@ -29,10 +29,16 @@ function DnsError:__tostring()
     return "DnsError"
 end
 
+local KillError = class("KillError", BaseException)
+function KillError:__tostring()
+    return "KillError"
+end
+
 local all = {}
 all.BaseException = BaseException
 all.CancelWaitError = CancelWaitError 
 all.DnsError = DnsError
+all.KillError = KillError
 function all.is_exception(exception)
     return class.isinstance(exception, BaseException)
 end
