@@ -34,7 +34,7 @@ cmake .
 make
 ```
 
-ways to build on windows, ref to [blog](http://xjdrew.github.io/blog/2014/08/28/compile-levent/)
+ways to build on windows, ref to [blog](http://xjdrew.github.io/blog/2014/08/28/compile-levent)
 
 code example
 ------------
