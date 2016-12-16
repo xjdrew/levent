@@ -132,10 +132,10 @@ local function unpack_name(chunk, left)
     local tag, offset, label
     while true do
         tag, left = unpack("B", chunk, left)
-        if bit32.band(tag, 0xc0) == 0xc0 then
+        if tag & 0xc0 == 0xc0 then
             -- pointer
             offset,left = unpack(">H", chunk, left - 1)
-            offset = bit32.band(offset, 0x3fff)
+            offset = offset & 0x3fff
             if not jump_pointer then
                 jump_pointer = left
             end
@@ -326,6 +326,7 @@ local function dns_resolve(name, ipv6, timeout)
         end
         -- only extract qtype address
         if answer.atype == qtype then
+            local ip
             ok, ip = pcall(unpack_rdata, qtype, answer.rdata)
             if not ok then
                 return nil, exception(ip)
