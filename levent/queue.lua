@@ -132,6 +132,10 @@ function Queue:join(sec)
     self.cond:wait(sec)
 end
 
+function Queue:empty()
+	return #self.items == 0
+end
+
 local M = {}
 M.queue = Queue.new
 return M
