@@ -60,7 +60,9 @@ function Hub:throw(co, exception)
 end
 
 function Hub:handle_error(co, msg)
-    print("error:", co, msg)
+    if not class.isinstance(msg, exceptions.KillError) then
+        print("error:", co, msg)
+    end
 end
 
 function Hub:_yield(waiter)
