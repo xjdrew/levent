@@ -15,6 +15,7 @@ libev/event.lo
 libev/event.o
 libev/libev.la
 libev/libtool
+deps/libev/ev.3
 *.vcxproj*
 *sdf
 *.sln
