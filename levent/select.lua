@@ -11,7 +11,7 @@ local function get_fileno(obj)
     if type(obj) == "number" then
         fileno = obj
     else 
-        local ok, val = pcall(obj.fileno, obj)
+        local ok, val = xpcall(obj.fileno, debug.traceback, obj)
         if ok then
             fileno = val
         end

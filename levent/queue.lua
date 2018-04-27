@@ -102,7 +102,7 @@ function Queue:put(item, sec)
     self.putters[waiter] = true
 
     local t = timeout.start_new(sec)
-    local ok, val = pcall(waiter.get, waiter)
+    local ok, val = xpcall(waiter.get, debug.traceback, waiter)
     self.putters[waiter] = nil
     t:cancel()
     if not ok then
@@ -119,7 +119,7 @@ function Queue:get(sec)
     self.getters[waiter] = true
 
     local t = timeout.start_new(sec)
-    local ok, val = pcall(waiter.get, waiter)
+    local ok, val = xpcall(waiter.get, debug.traceback, waiter)
     self.getters[waiter] = nil
     t:cancel()
     if not ok then

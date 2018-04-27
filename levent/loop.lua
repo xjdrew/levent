@@ -31,7 +31,7 @@ function Watcher:start(func, ...)
 
     self._cb = func
     if select("#", ...) > 0 then
-        self._args = {...}
+        self._args = table.pack(...)
     end
     self.cobj:start(self.loop.cobj)
 end
@@ -47,7 +47,7 @@ function Watcher:run_callback(revents)
     -- unused revents
     local ok, msg
     if self._args then
-        ok, msg = xpcall(self._cb, debug.traceback, table.unpack(self._args))
+        ok, msg = xpcall(self._cb, debug.traceback, table.unpack(self._args, 1, self._args.n))
     else
         ok, msg = xpcall(self._cb, debug.traceback)
     end

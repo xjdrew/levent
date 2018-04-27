@@ -26,7 +26,7 @@ function Hub:wait(watcher)
     local waiter = self:waiter()
     local uuid = unique()
     watcher:start(waiter, uuid)
-    local ok, val = pcall(waiter.get, waiter)
+    local ok, val = xpcall(waiter.get, debug.traceback, waiter)
     watcher:stop()
     if ok then
         assert(uuid == val)

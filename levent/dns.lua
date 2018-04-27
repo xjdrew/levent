@@ -308,7 +308,7 @@ local function dns_resolve(name, ipv6, timeout)
         return nil, exception("malformed packet")
     end
 
-    ok, question,left = pcall(unpack_question, resp, left)
+    ok, question,left = xpcall(unpack_question, debug.traceback, resp, left)
     if not ok then
         return nil, exception(question)
     end
@@ -320,14 +320,14 @@ local function dns_resolve(name, ipv6, timeout)
     local answer
     local answers = {}
     for i=1, answer_header.ancount do
-        ok, answer, left = pcall(unpack_answer, resp, left)
+        ok, answer, left = xpcall(unpack_answer, debug.traceback, resp, left)
         if not ok then
             return nil, exception(answer)
         end
         -- only extract qtype address
         if answer.atype == qtype then
             local ip
-            ok, ip = pcall(unpack_rdata, qtype, answer.rdata)
+            ok, ip = xpcall(unpack_rdata, debug.traceback, qtype, answer.rdata)
             if not ok then
                 return nil, exception(ip)
             end

@@ -24,7 +24,10 @@ local function _wait(watcher, sec)
         t = timeout.start_new(sec)
     end
 
-    local ok, excepiton = pcall(hub.wait, hub, watcher)
+    local ok, excepiton = xpcall(hub.wait, debug.traceback, hub, watcher)
+    if not ok then
+        print(ok, excepiton)
+    end
     if t then
         t:cancel()
     end

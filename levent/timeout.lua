@@ -41,10 +41,10 @@ end
 function timeout.run(seconds, func, ...)
     local t = Timeout.new(seconds)
     t:start()
-    local args = {pcall(func, ...)}
+    local args = table.pack(xpcall(func, debug.traceback, ...))
     t:cancel()
     if args[1] then
-        return table.unpack(args)
+        return table.unpack(args, 1, args.n)
     else
         if args[2] == t then
             return false, t

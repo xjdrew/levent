@@ -46,7 +46,7 @@ function Event:wait(sec)
     self.links[waiter] = true
 
     local t = timeout.start_new(sec)
-    local ok, val = pcall(waiter.get, waiter)
+    local ok, val = xpcall(waiter.get, debug.traceback, waiter)
     self.links[waiter] = nil
     t:cancel()
     if not ok then
@@ -98,7 +98,7 @@ function AsyncResult:get(sec)
         local t = timeout.start_new(sec)
         local waiter = hub:waiter()
         self.links[waiter] = true
-        local ok, val = pcall(waiter.get, waiter)
+        local ok, val = xpcall(waiter.get, debug.traceback, waiter)
         self.links[waiter] = nil
         t:cancel()
         if not ok then
@@ -153,7 +153,7 @@ function Semaphore:wait(sec)
     self.links[waiter] = true
 
     local t = timeout.start_new(sec)
-    local ok, val = pcall(waiter.get, waiter)
+    local ok, val = xpcall(waiter.get, waiter)
     self.links[waiter] = nil
     t:cancel()
     if not ok then
