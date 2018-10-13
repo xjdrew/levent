@@ -107,6 +107,7 @@ function Loop:verify()
 end
 
 function Loop:now()
+    self.cobj:now_update()
     return self.cobj:now()
 end
 

@@ -2,7 +2,9 @@ local ev = require "levent.ev.c"
 print(ev.version())
 local loop = ev.default_loop()
 print(loop)
-print(loop:now())
+print("time1:", loop:now())
+loop:now_update()
+print("time2:", loop:now())
 
 local watchers = {}
 local function _cb(loop, id, revents)
