@@ -44,6 +44,9 @@ set(CBSON  ext/mongo/lua-bson.c)
 
 IF(NOT WIN32)
     add_lua_library(levent ${CSOURCE})
+    # ignore compile warning: incompatible-pointer-types
+    target_compile_options(levent PRIVATE -Wno-incompatible-pointer-types)
+
     target_link_libraries(levent ev)
     add_custom_command(TARGET levent
         PRE_BUILD
