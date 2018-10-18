@@ -26,11 +26,6 @@ function levent.sleep(sec)
     end
 end
 
-local function assert_resume(co, ...)
-    local ok, msg = coroutine.resume(co, ...)
-    assert(ok, msg)
-end
-
 local stats = {
     running = coroutines.running,
     cached = coroutines.cached,
@@ -57,7 +52,7 @@ levent.check_coroutine = coroutines.check
 
 function levent.spawn(f, ...)
     local co = coroutines.create(f)
-    hub.loop:run_callback(assert_resume, co, ...)
+    hub.loop:run_callback(coroutines.resume, co, ...)
     return co
 end
 

@@ -34,7 +34,12 @@ local timer = loop:timer(1)
 timer:start(function(revents)
     timer:stop()
     print("in timer:", revents)
+
     loop:run_callback(_cb, "timer")
+
+    local t1 = loop:timer(1)
+    t1 = nil
+    collectgarbage("collect")
 end)
 
 local signal = loop:signal(3)

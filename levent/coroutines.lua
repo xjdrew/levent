@@ -32,7 +32,19 @@ end
 
 local coroutines = {}
 function coroutines.create(f)
-    return co_create(f)
+    return co_create(function(...)
+        local ok, msg = xpcall(f, debug.traceback, ...)
+        if not ok then
+            error(msg, 0)
+        end
+    end)
+end
+
+function coroutines.resume(co, ...)
+    local ok, msg = coroutine.resume(co, ...)
+    if not ok then
+        error(msg, 0)
+    end
 end
 
 function coroutines.check(count)
