@@ -112,7 +112,7 @@ function Waiter:throw(exception)
     self:_switch(nil, exception)
 end
 
--- for 
+-- for Watcher
 function Waiter:__call(value)
     self:_switch(value, nil)
 end

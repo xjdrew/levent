@@ -17,13 +17,11 @@ function levent.now()
 end
 
 function levent.sleep(sec)
-    if sec <= 0 then
-        local waiter = hub:waiter()
-        hub.loop:run_callback(waiter.switch, waiter)
-        waiter:get()
-    else
-        hub:wait(hub.loop:timer(sec))
+    if sec < 0 then
+        sec = 0
     end
+
+    hub:wait(hub.loop:timer(sec))
 end
 
 local stats = {
