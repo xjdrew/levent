@@ -75,8 +75,39 @@ local exceptions = require "levent.exceptions"
 local pack = string.pack
 local unpack = string.unpack
 
-local dns_host = "223.5.5.5"
+local dns = {}
+dns.DEFAULT_HOSTS = "/etc/hosts"
+dns.DEFAULT_RESOLV_CONF = "/etc/resolv.conf"
+
+-- http://man7.org/linux/man-pages/man5/hosts.5.html
+
+local dns_host
 local dns_port = 53
+
+-- http://man7.org/linux/man-pages/man5/resolv.conf.5.html
+local function parse_resolv_conf()
+    local f = io.open(dns.DEFAULT_RESOLV_CONF)
+    if not f then
+        return
+    end
+
+    local server
+    for line in f:lines() do
+        server = line:match("%s*nameserver%s+([^#;%s]+)")
+        if server then
+            break
+        end
+    end
+    f:close()
+    return server
+end
+
+local function get_nameserver()
+    if not dns_host then
+        dns_host = assert(parse_resolv_conf(), "parse resolve conf failed")
+    end
+    return dns_host, dns_port
+end
 
 local MAX_DOMAIN_LEN = 1024
 local MAX_LABEL_LEN = 63
@@ -202,7 +233,8 @@ local function request(chunk, timeout)
         sock:set_timeout(timeout)
     end
 
-    local ok, err = sock:connect(dns_host, dns_port)
+    local host, port = get_nameserver()
+    local ok, err = sock:connect(host, port)
     if not ok then
         return nil, err
     end
@@ -343,7 +375,6 @@ local function dns_resolve(name, ipv6, timeout)
     return answers
 end
 
-local dns = {}
 -- set your preferred dns server or use default
 function dns.set_server(host, port)
     dns_host = host
@@ -362,4 +393,3 @@ function dns.resolve(name, ipv6, timeout)
 end
 
 return dns
-

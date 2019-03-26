@@ -7,8 +7,6 @@ local N = 1000
 local finished = 0
 local workers = 100
 
-dns.server = "8.8.8.8"
-
 function job(q)
     while true do
         local hostname = q:get()
@@ -32,6 +30,7 @@ function start()
         q:put(string.format("%s.com", i))
     end
 
+    -- wait 2 seconds
     q:join(2)
     levent.exit()
     print(string.format("finished within 2 seconds: %d/%d", finished, N))
