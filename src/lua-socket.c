@@ -214,6 +214,7 @@ _resolve(lua_State *L) {
     return 1;
 }
 
+// 使用系统方法，规范化ip
 static int
 _normalize_ip(lua_State *L) {
     char buf[sizeof(struct in6_addr)];
