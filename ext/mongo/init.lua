@@ -222,7 +222,7 @@ function mongo_cursor:hasNext()
 			pack = driver.query(request_id, self.__flags, self.__collection.full_name,0,0,self.__query,self.__selector)
 		else
 			if self.__cursor then
-				pack = driver.more(request_id, self.__collection.full_name,0,self.__cursor)
+				pack = driver.more(request_id, self.__collection.full_name,100,self.__cursor)
 			else
 				-- no more
 				self.__document = nil
