@@ -34,7 +34,10 @@ end
 function Watcher:start(func, ...)
     assert(self._cb == nil, self.cobj)
 
-    self._cb = wrap_callback(func, ...)
+    self._cb = func
+    if select("#", ...) > 0 then
+        self._args = tpack(...)
+    end
     self.cobj:start(self.loop.cobj)
 end
 
@@ -47,7 +50,13 @@ end
 
 function Watcher:run_callback(revents)
     -- unused revents
-    local ok, msg = self._cb()
+    local ok, msg
+    if self._args then
+        ok, msg = xpcall(self._cb, debug.traceback, tunpack(self._args, 1, self._args.n))
+    else
+        ok, msg = xpcall(self._cb, debug.traceback)
+    end
+
     if not ok then
         self.loop:handle_error(self, msg)
     end
