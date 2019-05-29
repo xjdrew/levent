@@ -470,7 +470,7 @@ function dns.resolve(name, ipv6, timeout)
         if (ipv6 and name == "ipv4") or (not ipv6 and name=="ipv6") then
             return nil, exception("illegal ip address")
         end
-        return name
+        return {name}
     end
 
     if not is_valid_hostname(name) then
