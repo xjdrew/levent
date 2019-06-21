@@ -71,6 +71,8 @@
 --]]
 local levent     = require "levent.levent"
 local socket     = require "levent.socket"
+local class      = require "levent.class"
+local ltimeout    = require "levent.timeout"
 local exceptions = require "levent.exceptions"
 
 local pack = string.pack
@@ -179,7 +181,7 @@ local function parse_resolv_conf()
 
     local servers = {}
     for line in f:lines() do
-        local server = line:match("%s*nameserver%s+([^#;%s]+)")
+        local server = line:match("^%s*nameserver%s+([^#;%s]+)")
         if server then
             table.insert(servers, {host = server, port = dns.DEFAULT_PORT})
         end
@@ -193,6 +195,10 @@ local function get_nameservers()
         dns_addrs = assert(parse_resolv_conf(), "parse resolve conf failed")
     end
     return dns_addrs
+end
+
+local function set_nameservers(addrs)
+    dns_addrs = addrs
 end
 
 local function exception(info)
@@ -269,21 +275,21 @@ end
 local unpack_type = {
     [QTYPE.A] = function(ans, chunk)
         if #chunk ~= 4 then
-            return "bad A record value length: " .. #chunk
+            return exception("bad A record value length: " .. #chunk)
         end
         local a, b, c, d = unpack("BBBB", chunk)
         ans.address = string.format("%d.%d.%d.%d", a, b, c, d)
     end,
     [QTYPE.AAAA] = function(ans, chunk)
         if #chunk ~= 16 then
-            return "bad AAAA record value length: " .. #chunk
+            return exception("bad AAAA record value length: " .. #chunk)
         end
         local a,b,c,d,e,f,g,h = unpack(">HHHHHHHH", chunk)
         ans.address = string.format("%x:%x:%x:%x:%x:%x:%x:%x", a, b, c, d, e, f, g, h)
     end,
     [QTYPE.SRV] = function(ans, chunk)
         if #chunk < 7 then
-            return "bad SRV record value length: " .. #chunk
+            return exception("bad SRV record value length: " .. #chunk)
         end
 
         local left
@@ -326,27 +332,27 @@ end
 
 local function unpack_response(chunk)
     if #chunk < DNS_HEADER_LEN then
-        return nil, "truncated"
+        return nil, exception("truncated")
     end
 
     -- unpack header
     local tid, flags, qdcount, ancount, nscount, arcount, left = unpack(">HHHHHH", chunk)
 
     if flags & 0x8000 == 0 then
-        return nil, "bad QR flag in the DNS response"
+        return nil, exception("bad QR flag in the DNS response")
     end
 
     if flags & 0x200 ~= 0 then
-        return nil, "truncated"
+        return nil, exception("truncated")
     end
 
     local code = flags & 0xf
     if code ~= 0 then
-        return nil, "code:" .. code
+        return nil, exception("code:" .. code)
     end
 
     if qdcount ~= 1 then
-        return nil, "qdcount error " .. qdcount
+        return nil, exception("qdcount error " .. qdcount)
     end
 
     local qname
@@ -403,7 +409,7 @@ local function request(server, chunk, timeout, type)
     end
 
     if sent ~= #chunk then
-        return nil, "send failed"
+        return nil, exception("send failed")
     end
 
     local resp, err
@@ -467,7 +473,7 @@ end
 local resolve_type = {
     [QTYPE.A] = {
         family = "ipv4",
-        normal = function(answers)
+        normalize = function(answers)
             local ret = {}
             local ttl
             for _, ans in ipairs(answers) do
@@ -481,7 +487,7 @@ local resolve_type = {
     },
     [QTYPE.AAAA] = {
         family = "ipv6",
-        normal = function(answers)
+        normalize = function(answers)
             local ret = {}
             local ttl
             for _, ans in ipairs(answers) do
@@ -494,7 +500,7 @@ local resolve_type = {
         end,
     },
     [QTYPE.SRV] = {
-        normal = function(answers)
+        normalize = function(answers)
             local servers = {}
             for _, ans in ipairs(answers) do
                 if ans.qtype == QTYPE.SRV then
@@ -521,7 +527,7 @@ local resolve_type = {
         end,
     },
     [QTYPE.TXT] = {
-        normal = function(answers)
+        normalize = function(answers)
             local ret = {}
             local ttl
             for _, ans in ipairs(answers) do
@@ -566,34 +572,43 @@ local function remote_resolve(name, qtype, timeout)
     local req = pack_header(question_header) .. pack_question(name, qtype, QCLASS.IN)
 
     local nameservers = get_nameservers()
+    local valid_nameserver = {}
+    local valid_amount = 1
     local result, err
+
     for _, server in ipairs(nameservers) do
-        result, err = request(server, req, timeout)
-        if err == "truncated" then
-            result, err = request(server, req, timeout, "tcp")
+        if not result then
+            result, err = request(server, req, timeout)
+            if class.isinstance(err, exceptions.DnsError) and err.info == "truncated" then
+                result, err = request(server, req, timeout, "tcp")
+            end
         end
 
-        if result then
-            break
+        if ltimeout.is_timeout(err) then
+            table.insert(valid_nameserver, #valid_nameserver+1, server)
+        else
+            table.insert(valid_nameserver, valid_amount, server)
+            valid_amount = valid_amount + 1
         end
     end
+    set_nameservers(valid_nameserver)
 
     if not result then
-        return nil, exception(err)
+        return nil, err
     elseif #result == 0 then
         return nil, exception("no answers")
     end
 
     local ttl
-    local normal = resolve_type[qtype].normal
-    result, ttl = normal(result)
+    local normalize = resolve_type[qtype].normalize
+    result, ttl = normalize(result)
 
     set_cache(qtype, name, ttl, result)
     return result
 end
 
 local function dns_resolve(name, qtype, timeout)
-    assert(resolve_type[qtype])
+    assert(resolve_type[qtype], "unknown resolve qtype " .. qtype)
     name = name:lower()
     local answers = local_resolve(name, qtype)
     if answers then

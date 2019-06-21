@@ -18,6 +18,9 @@ local function run()
     resolve("114.114.114.114")
     resolve("0:0:0:0:0:FFFF:204.152.189.116", dns.QTYPE.AAAA)
     resolve("a.114.114.114")
+    resolve("gmail.com", dns.QTYPE.TXT)
+    -- resolve("gmail.com", dns.QTYPE.SRV)
+    resolve("www.testfailed.com")
 end
 
 levent.start(run)
