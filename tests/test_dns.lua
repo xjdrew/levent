@@ -2,9 +2,9 @@ local levent = require "levent.levent"
 local dns    = require "levent.dns"
 local seri   = require "levent.tpseri"
 
-local function resolve(host, ipv6)
-    print("resolve:", ipv6 and "ipv6" or "ipv4", host)
-    local answers, err = dns.resolve(host, ipv6, 1)
+local function resolve(host, qtype)
+    print("resolve:", qtype, host)
+    local answers, err = dns.resolve(host, qtype, 1)
     if answers then
         print(seri(answers))
     else
@@ -13,11 +13,14 @@ local function resolve(host, ipv6)
 end
 
 local function run()
-    resolve("www.google.com", true)
+    resolve("www.google.com", dns.QTYPE.AAAA)
     resolve("www.google.com")
     resolve("114.114.114.114")
-    resolve("0:0:0:0:0:FFFF:204.152.189.116", true)
+    resolve("0:0:0:0:0:FFFF:204.152.189.116", dns.QTYPE.AAAA)
     resolve("a.114.114.114")
+    resolve("gmail.com", dns.QTYPE.TXT)
+    -- resolve("gmail.com", dns.QTYPE.SRV)
+    resolve("www.testfailed.com")
 end
 
 levent.start(run)

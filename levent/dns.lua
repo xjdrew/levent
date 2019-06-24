@@ -2,7 +2,7 @@
 -- author: xjdrew
 -- date: 2014-08-06
 -- lua dns resolver library
--- conform to rfc1035 (http://tools.ietf.org/html/rfc1035)
+-- conform to rfc1035 (http://tools.ietf.org/html/rfc1035), rfc2782 (https://tools.ietf.org/html/rfc2782)
 -- support ipv6, conform to rfc1886(http://tools.ietf.org/html/rfc1886), rfc2874(http://tools.ietf.org/html/rfc2874)
 --]]
 
@@ -26,6 +26,7 @@
 -- MX              15 mail exchange
 -- TXT             16 text strings
 -- AAAA            28 a ipv6 host address
+-- SRV             33 a DNS RR for specifying the location of services
 -- only appear in the question section:
 -- AXFR            252 A request for a transfer of an entire zone
 -- MAILB           253 A request for mailbox-related records (MB, MG or MR)
@@ -70,21 +71,31 @@
 --]]
 local levent     = require "levent.levent"
 local socket     = require "levent.socket"
+local class      = require "levent.class"
+local ltimeout    = require "levent.timeout"
 local exceptions = require "levent.exceptions"
 
 local pack = string.pack
 local unpack = string.unpack
 
 local dns = {}
-dns.DEFAULT_HOSTS = "/etc/hosts"
+dns.DEFAULT_HOSTS       = "/etc/hosts"
 dns.DEFAULT_RESOLV_CONF = "/etc/resolv.conf"
+dns.DEFAULT_PORT        = 53
+
+local MAX_DOMAIN_LEN = 1024
+local MAX_LABEL_LEN = 63
+local MAX_PACKET_LEN = 2048
+local DNS_HEADER_LEN = 12
 
 -- local hosts
 local local_hosts
 
 -- dns server address
-local dns_host
-local dns_port = 53
+local dns_addrs
+
+--------------------------------------------------------------------------------------
+-- util function
 
 -- return name type: 'ipv4', 'ipv6', or 'hostname'
 local function guess_name_type(name)
@@ -97,6 +108,30 @@ local function guess_name_type(name)
     end
 
     return "hostname"
+end
+
+local function is_valid_hostname(name)
+    if #name > MAX_DOMAIN_LEN then
+        return false
+    end
+
+    if not name:match("^[%l%d-%.]+$") then
+        return false
+    end
+
+    local seg
+    for w in name:gmatch("([%w-]+)%.?") do
+        if #w > MAX_LABEL_LEN then
+            return false
+        end
+        seg = w
+    end
+
+    -- last segment can't be a number
+    if seg:match("([%d]+)%.?") then
+        return false
+    end
+    return true
 end
 
 -- http://man7.org/linux/man-pages/man5/hosts.5.html
@@ -133,14 +168,6 @@ local function parse_hosts()
     return rts
 end
 
-local function get_hosts()
-    if not local_hosts then
-        local_hosts = parse_hosts()
-    end
-
-    return local_hosts
-end
-
 -- http://man7.org/linux/man-pages/man5/resolv.conf.5.html
 local function parse_resolv_conf()
     if not dns.DEFAULT_RESOLV_CONF then
@@ -152,38 +179,50 @@ local function parse_resolv_conf()
         return
     end
 
-    local server
+    local servers = {}
     for line in f:lines() do
-        server = line:match("%s*nameserver%s+([^#;%s]+)")
+        local server = line:match("^%s*nameserver%s+([^#;%s]+)")
         if server then
-            break
+            table.insert(servers, {host = server, port = dns.DEFAULT_PORT})
         end
     end
     f:close()
-    return server
+    return servers
 end
 
-local function get_nameserver()
-    if not dns_host then
-        dns_host = assert(parse_resolv_conf(), "parse resolve conf failed")
+local function get_nameservers()
+    if not dns_addrs then
+        dns_addrs = assert(parse_resolv_conf(), "parse resolve conf failed")
     end
-    return dns_host, dns_port
+    return dns_addrs
 end
 
+local function set_nameservers(addrs)
+    dns_addrs = addrs
+end
 
-local MAX_DOMAIN_LEN = 1024
-local MAX_LABEL_LEN = 63
-local MAX_PACKET_LEN = 2048
-local DNS_HEADER_LEN = 12
+local function exception(info)
+    return exceptions.DnsError.new(info)
+end
+
+--------------------------------------------------------------------------------------
+-- dns protocol
 
 local QTYPE = {
-    A = 1,
-    CNAME = 5,
-    AAAA = 28,
+    A       = 1,
+    TXT     = 16,
+    AAAA    = 28,
+    SRV     = 33,
 }
 
 local QCLASS = {
     IN = 1,
+}
+
+local SECTION = {
+    AN = 1,
+    NS = 2,
+    AR = 3,
 }
 
 local next_tid = 1
@@ -199,23 +238,12 @@ end
 
 local function pack_question(name, qtype, qclass)
     local labels = {}
-    for w in name:gmatch("([%w%-_)]+)%.?") do
-        labels[#labels + 1] = string.pack("s1", w)
+    for w in name:gmatch("([_%w%-]+)%.?") do
+        table.insert(labels, string.pack("s1",w))
     end
-    --labels[#labels + 1] = string.char(0)
-    return pack(">zHH", table.concat(labels), qtype, qclass)
-end
-
-local function unpack_header(chunk)
-    local tid, flags, qdcount, ancount, nscount, arcount, left = unpack(">HHHHHH", chunk)
-    return {
-        tid = tid,
-        flags = flags,
-        qdcount = qdcount,
-        ancount = ancount,
-        nscount = nscount,
-        arcount = arcount
-    }, left
+    table.insert(labels, '\0')
+    table.insert(labels, string.pack(">HH", qtype, qclass))
+    return table.concat(labels)
 end
 
 -- unpack a resource name
@@ -244,49 +272,120 @@ local function unpack_name(chunk, left)
     return table.concat(t, "."), jump_pointer or left
 end
 
-local function unpack_question(chunk, left)
-    local name, atype, class
-    name, left = unpack_name(chunk, left)
-    atype, class, left = unpack(">HH", chunk, left)
-    return {
-        name = name,
-        atype = atype, 
-        class = class
-    }, left
-end
-
-local function unpack_answer(chunk, left)
-    local tag, name, atype, class, ttl, rdata
-    name, left = unpack_name(chunk, left)
-    atype, class, ttl, rdata, left = unpack(">HHI4s2", chunk, left)
-    return {
-        name = name,
-        atype = atype,
-        class = class,
-        ttl = ttl,
-        rdata = rdata
-    },left
-end
-
--- a 32bit internet address
-local function unpack_rdata(qtype, chunk)
-    if qtype == QTYPE.A then
-        local a,b,c,d = unpack("BBBB", chunk)
-        return string.format("%d.%d.%d.%d", a,b,c,d)
-    elseif qtype == QTYPE.AAAA then
+local unpack_type = {
+    [QTYPE.A] = function(ans, chunk)
+        if #chunk ~= 4 then
+            return exception("bad A record value length: " .. #chunk)
+        end
+        local a, b, c, d = unpack("BBBB", chunk)
+        ans.address = string.format("%d.%d.%d.%d", a, b, c, d)
+    end,
+    [QTYPE.AAAA] = function(ans, chunk)
+        if #chunk ~= 16 then
+            return exception("bad AAAA record value length: " .. #chunk)
+        end
         local a,b,c,d,e,f,g,h = unpack(">HHHHHHHH", chunk)
-        return string.format("%x:%x:%x:%x:%x:%x:%x:%x", a, b, c, d, e, f, g, h)
-    else
-        assert(nil, qtype)
+        ans.address = string.format("%x:%x:%x:%x:%x:%x:%x:%x", a, b, c, d, e, f, g, h)
+    end,
+    [QTYPE.SRV] = function(ans, chunk)
+        if #chunk < 7 then
+            return exception("bad SRV record value length: " .. #chunk)
+        end
+
+        local left
+        ans.priority, ans.weight, ans.port, left = unpack(">HHH", chunk)
+        ans.target, left = unpack_name(chunk, left)
+    end,
+    [QTYPE.TXT] = function(ans, chunk)
+        local left = 1
+        ans.txt = {}
+        while left < #chunk do
+            local txt
+            txt, left = unpack("s1", chunk, left)
+            table.insert(ans.txt, txt)
+        end
+    end,
+}
+
+local function unpack_section(answers, section, chunk, left, count)
+    for _ = 1, count do
+        local ans = {}
+        ans.section = section
+        ans.name, left = unpack_name(chunk, left)
+
+        local rdata
+        ans.qtype, ans.class, ans.ttl, rdata, left = unpack(">HHI4s2", chunk, left)
+
+        local unpack_rdata = unpack_type[ans.qtype]
+        if unpack_rdata then
+            local err = unpack_rdata(ans, rdata)
+            if err then
+                return nil, err
+            end
+
+            table.insert(answers, ans)
+        end
     end
+
+    return left
 end
 
-local function exception(info)
-    return exceptions.DnsError.new(info)
+local function unpack_response(chunk)
+    if #chunk < DNS_HEADER_LEN then
+        return nil, exception("truncated")
+    end
+
+    -- unpack header
+    local tid, flags, qdcount, ancount, nscount, arcount, left = unpack(">HHHHHH", chunk)
+
+    if flags & 0x8000 == 0 then
+        return nil, exception("bad QR flag in the DNS response")
+    end
+
+    if flags & 0x200 ~= 0 then
+        return nil, exception("truncated")
+    end
+
+    local code = flags & 0xf
+    if code ~= 0 then
+        return nil, exception("code:" .. code)
+    end
+
+    if qdcount ~= 1 then
+        return nil, exception("qdcount error " .. qdcount)
+    end
+
+    local qname
+    qname, left = unpack_name(chunk, left)
+
+    local qtype, class
+    qtype, class, left = unpack(">HH", chunk, left)
+
+    local answers = {
+        tid = tid,
+        code = code,
+        qname = qname,
+        qtype = qtype,
+    }
+
+    local err
+    local sections = {
+        {section = SECTION.AN, count = ancount},
+        {section = SECTION.NS, count = nscount},
+        {section = SECTION.AR, count = arcount},
+    }
+    for _, section in ipairs(sections) do
+        left, err = unpack_section(answers, section.section, chunk, left, section.count)
+        if not left then
+            return nil, err
+        end
+    end
+
+    return answers
 end
 
-local function request(chunk, timeout)
-    local sock, err = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+local function request(server, chunk, timeout, type)
+    local sock, err = socket.socket(socket.AF_INET, type == "tcp" and socket.SOCK_STREAM or socket.SOCK_DGRAM)
     if not sock then
         return nil, err
     end
@@ -295,10 +394,13 @@ local function request(chunk, timeout)
         sock:set_timeout(timeout)
     end
 
-    local host, port = get_nameserver()
-    local ok, err = sock:connect(host, port)
+    local ok, err = sock:connect(server.host, server.port)
     if not ok then
         return nil, err
+    end
+
+    if type == "tcp" then
+        chunk = pack(">H", #chunk) .. chunk
     end
 
     local sent, err = sock:send(chunk)
@@ -307,22 +409,41 @@ local function request(chunk, timeout)
     end
 
     if sent ~= #chunk then
-        return nil, "send failed"
+        return nil, exception("send failed")
     end
 
-    -- only accept first packet, drop others
-    local resp, err = sock:recv(MAX_PACKET_LEN)
+    local resp, err
+    if type == "tcp" then
+        local header
+        header, err = sock:recv(2)
+        if err then
+            return nil, err
+        end
+        local len = unpack(">H", header)
+        resp, err = sock:recv(len)
+    else
+        -- only accept first packet, drop others
+        resp, err = sock:recv(MAX_PACKET_LEN)
+    end
     sock:close()
-    return resp, err
+    if err then
+        return nil, err
+    end
+
+    return unpack_response(resp)
 end
 
--- name cached
+--------------------------------------------------------------------------------------
+-- cached
+
+local weak = {__mode = "kv"}
 local cached = {}
 local function query_cache(qtype, name)
     local qcache = cached[qtype]
     if not qcache then
         return
     end
+
     local t = qcache[name]
     if t then
         if t.expired < levent.now() then
@@ -334,10 +455,10 @@ local function query_cache(qtype, name)
 end
 
 local function set_cache(qtype, name, ttl, data)
-    if ttl and ttl > 0 and data and #data > 0 then
+    if ttl and ttl > 0 and data then
         local qcache = cached[qtype]
         if not qcache then
-            qcache = {}
+            qcache = setmetatable({}, weak)
             cached[qtype] = qcache
         end
         qcache[name] = {
@@ -347,35 +468,89 @@ local function set_cache(qtype, name, ttl, data)
     end
 end
 
-local function is_valid_hostname(name)
-    if #name > MAX_DOMAIN_LEN then
-        return false
-    end
+--------------------------------------------------------------------------------------
 
-    if not name:match("^[%l%d-%.]+$") then
-        return false
-    end
+local resolve_type = {
+    [QTYPE.A] = {
+        family = "ipv4",
+        normalize = function(answers)
+            local ret = {}
+            local ttl
+            for _, ans in ipairs(answers) do
+                if ans.qtype == QTYPE.A then
+                    table.insert(ret, ans.address)
+                    ttl = ans.ttl
+                end
+            end
+            return ret, ttl
+        end,
+    },
+    [QTYPE.AAAA] = {
+        family = "ipv6",
+        normalize = function(answers)
+            local ret = {}
+            local ttl
+            for _, ans in ipairs(answers) do
+                if ans.qtype == QTYPE.AAAA then
+                    table.insert(ret, ans.address)
+                    ttl = ans.ttl
+                end
+            end
+            return ret, ttl
+        end,
+    },
+    [QTYPE.SRV] = {
+        normalize = function(answers)
+            local servers = {}
+            for _, ans in ipairs(answers) do
+                if ans.qtype == QTYPE.SRV then
+                    servers[ans.target] = {
+                        host = ans.target,
+                        port = ans.port,
+                        weight = ans.weight,
+                        priority = ans.priority,
+                        ttl = ans.ttl,
+                    }
+                elseif ans.qtype == QTYPE.A or ans.qtype == QTYPE.AAAA then
+                    assert(servers[ans.name])
+                    servers[ans.name].host = ans.address
+                end
+            end
 
-    local seg
-    for w in name:gmatch("([%w-]+)%.?") do
-        if #w > MAX_LABEL_LEN then
-            return false
-        end
-        seg = w
-    end
-
-    -- last segment can't be a number
-    if seg:match("([%d]+)%.?") then
-        return false
-    end
-    return true
-end
-
+            local ret = {}
+            local ttl
+            for _, server in pairs(servers) do
+                table.insert(ret, server)
+                ttl = server.ttl
+            end
+            return ret, ttl
+        end,
+    },
+    [QTYPE.TXT] = {
+        normalize = function(answers)
+            local ret = {}
+            local ttl
+            for _, ans in ipairs(answers) do
+                if ans.qtype == QTYPE.TXT then
+                    for _, txt in ipairs(ans.txt) do
+                        table.insert(ret, txt)
+                    end
+                    ttl = ans.ttl
+                end
+            end
+            return ret, ttl
+        end,
+    },
+}
 -- parse local hosts
-local function local_resolve(name, ipv6)
-    local hosts = get_hosts()
-    local family = ipv6 and "ipv6" or "ipv4"
+local function local_resolve(name, qtype)
+    local hosts = local_hosts
+    if not hosts then
+        local_hosts = parse_hosts()
+        hosts = local_hosts
+    end
 
+    local family = resolve_type[qtype].family
     local t = hosts[name]
     if t then
         return t[family]
@@ -383,9 +558,7 @@ local function local_resolve(name, ipv6)
     return nil
 end
 
-local function remote_resolve(name, ipv6, timeout)
-    local qtype = ipv6 and QTYPE.AAAA or QTYPE.A
-
+local function remote_resolve(name, qtype, timeout)
     local ret = query_cache(qtype, name)
     if ret then
         return ret
@@ -396,87 +569,82 @@ local function remote_resolve(name, ipv6, timeout)
         flags = 0x100, -- flags: 00000001 00000000, set RD
         qdcount = 1,
     }
-
     local req = pack_header(question_header) .. pack_question(name, qtype, QCLASS.IN)
-    local resp, err = request(req, timeout)
-    if not resp or #resp < DNS_HEADER_LEN then
-        if exceptions.is_exception(err) then
-            return nil, err
+
+    local nameservers = get_nameservers()
+    local valid_nameserver = {}
+    local valid_amount = 1
+    local result, err
+
+    for _, server in ipairs(nameservers) do
+        if not result then
+            result, err = request(server, req, timeout)
+            if class.isinstance(err, exceptions.DnsError) and err.info == "truncated" then
+                result, err = request(server, req, timeout, "tcp")
+            end
         end
-        return nil, exception(err)
-    end
 
-    local ok, left, answer_header, question
-    answer_header,left = unpack_header(resp)
-    -- verify answer
-    if answer_header.tid ~= question_header.tid or answer_header.qdcount ~= 1 then
-        return nil, exception("malformed packet")
+        if ltimeout.is_timeout(err) then
+            table.insert(valid_nameserver, #valid_nameserver+1, server)
+        else
+            table.insert(valid_nameserver, valid_amount, server)
+            valid_amount = valid_amount + 1
+        end
     end
+    set_nameservers(valid_nameserver)
 
-    ok, question,left = xpcall(unpack_question, debug.traceback, resp, left)
-    if not ok then
-        return nil, exception(question)
-    end
-    if question.name ~= name then
-        return nil, exception("malformed packet")
+    if not result then
+        return nil, err
+    elseif #result == 0 then
+        return nil, exception("no answers")
     end
 
     local ttl
-    local answer
-    local answers = {}
-    for i=1, answer_header.ancount do
-        ok, answer, left = xpcall(unpack_answer, debug.traceback, resp, left)
-        if not ok then
-            return nil, exception(answer)
-        end
-        -- only extract qtype address
-        if answer.atype == qtype then
-            local ip
-            ok, ip = xpcall(unpack_rdata, debug.traceback, qtype, answer.rdata)
-            if not ok then
-                return nil, exception(ip)
-            end
-            ttl = ttl and math.min(ttl, answer.ttl) or answer.ttl
-            answers[#answers+1] = ip
-        end
-    end
+    local normalize = resolve_type[qtype].normalize
+    result, ttl = normalize(result)
 
-    if #answers == 0 then
-        return nil, exception("no ip")
-    end
-    set_cache(qtype, name, ttl, answers)
-    return answers
+    set_cache(qtype, name, ttl, result)
+    return result
 end
 
-local function dns_resolve(name, ipv6, timeout)
-    local name = name:lower()
-    local answers = local_resolve(name, ipv6)
+local function dns_resolve(name, qtype, timeout)
+    assert(resolve_type[qtype], "unknown resolve qtype " .. qtype)
+    name = name:lower()
+    local answers = local_resolve(name, qtype)
     if answers then
         return answers
     end
 
-    return remote_resolve(name, ipv6, timeout)
+    return remote_resolve(name, qtype, timeout)
 end
 
 -- set your preferred dns server or use default
-function dns.set_server(host, port)
-    dns_host = host
-    dns_port = port
+function dns.set_servers(servers)
+    dns_addrs = {}
+    for _, server in ipairs(servers) do
+        if type(server) == "table" then
+            assert(server.host)
+            table.insert(dns_addrs, {host = server.host, port = server.port or dns.DEFAULT_PORT})
+        else
+            table.insert(dns_addrs, {host = server, port = dns.DEFAULT_PORT})
+        end
+    end
 end
 
-function dns.resolve(name, ipv6, timeout)
+function dns.resolve(name, qtype, timeout)
+    timeout = timeout or 1
+    qtype = qtype or QTYPE.A
     local ntype = guess_name_type(name)
     if ntype ~= "hostname" then
-        if (ipv6 and name == "ipv4") or (not ipv6 and name=="ipv6") then
-            return nil, exception("illegal ip address")
-        end
         return {name}
     end
 
     if not is_valid_hostname(name) then
         return nil, exception("illegal name")
     end
-    return dns_resolve(name, ipv6, timeout)
+    return dns_resolve(name, qtype, timeout)
 end
+
+dns.QTYPE = QTYPE
 
 return dns
