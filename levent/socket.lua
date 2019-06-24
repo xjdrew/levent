@@ -113,8 +113,9 @@ function Socket:accept()
 end
 
 function Socket:_recv(func, ...)
+    local cobj = self.cobj
     while true do
-        local data, err = func(self.cobj, ...)
+        local data, err = func(cobj, ...)
         if data then
             return data
         end
@@ -141,8 +142,9 @@ function Socket:recv(len)
 end
 
 function Socket:_send(func, ...)
+    local cobj = self.cobj
     while true do
-        local nwrite, err = func(self.cobj, ...)
+        local nwrite, err = func(cobj, ...)
         if nwrite then
             return nwrite
         end
