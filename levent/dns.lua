@@ -119,18 +119,12 @@ local function is_valid_hostname(name)
         return false
     end
 
-    local seg
     for w in name:gmatch("([%w-]+)%.?") do
         if #w > MAX_LABEL_LEN then
             return false
         end
-        seg = w
     end
 
-    -- last segment can't be a number
-    if seg:match("([%d]+)%.?") then
-        return false
-    end
     return true
 end
 
@@ -617,7 +611,6 @@ end
 
 local function dns_resolve(name, qtype, timeout)
     assert(resolve_type[qtype], "unknown resolve qtype " .. qtype)
-    name = name:lower()
     local answers = local_resolve(name, qtype)
     if answers then
         return answers
@@ -640,6 +633,7 @@ function dns.set_servers(servers)
 end
 
 function dns.resolve(name, qtype, timeout)
+    name = name:lower()
     timeout = timeout or 1
     qtype = qtype or QTYPE.A
     local ntype = guess_name_type(name)
