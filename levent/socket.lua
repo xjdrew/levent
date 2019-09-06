@@ -112,23 +112,26 @@ function Socket:accept()
     return Socket.new(csock)
 end
 
-function Socket:_recv(func, ...)
-    local cobj = self.cobj
-    while true do
-        local data, err = func(cobj, ...)
-        if data then
-            return data
+function Socket:_recv(func, len, ...)
+    local ret = ""
+    while len > 0 do
+        local data, err = func(self.cobj, len, ...)
+        if not data then
+            if not self:_need_block(err) then
+                return nil, err
+            end
+
+            local ok, exception = _wait(self._read_event, self.timeout)
+            if not ok then
+                return nil, exception
+            end
         end
 
-        if not self:_need_block(err) then
-            return nil, err
-        end
-
-        local ok, exception = _wait(self._read_event, self.timeout)
-        if not ok then
-            return nil, exception
-        end
+        len = len - string.len(data)
+        ret = ret .. data
     end
+
+    return ret
 end
 
 -- args:len
