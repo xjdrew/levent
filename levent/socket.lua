@@ -131,6 +131,29 @@ function Socket:_recv(func, ...)
     end
 end
 
+--出现粘包时持续读取内容指到足够bytes
+function Socket:until_recv(len)
+    local ret = ""
+    while len > 0 do
+        local data, err = self.cobj:recv(len)
+        if not data then
+            if not self:_need_block(err) then
+                return nil, err
+            end
+
+            local ok, exception = _wait(self._read_event, self.timeout)
+            if not ok then
+                return nil, exception
+            end
+        end
+    
+        len = len - string.len(data)
+        ret = ret .. data
+    end
+
+    return ret
+end
+
 -- args:len
 function Socket:recvfrom(len)
     return self:_recv(self.cobj.recvfrom, len)

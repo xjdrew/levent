@@ -107,7 +107,7 @@ end
 
 local function get_reply(sock, result)
 	local length = driver.length(sock:recv(4))
-	local reply = sock:recv(length)
+	local reply = sock:until_recv(length)
 	return reply, driver.reply(reply, result)
 end
 
