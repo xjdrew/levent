@@ -1,5 +1,6 @@
 local bson = require "bson"
 local socket = require "levent.socket"
+local socketUtil = require "levent.socket_util"
 local driver = require "mongo.driver"
 local rawget = rawget
 local assert = assert
@@ -107,7 +108,7 @@ end
 
 local function get_reply(sock, result)
 	local length = driver.length(sock:recv(4))
-	local reply = sock:until_recv(length)
+    local reply = socketUtil.read_full(sock, length)
 	return reply, driver.reply(reply, result)
 end
 

@@ -42,5 +42,19 @@ function util.listen(ip, port)
     return sock
 end
 
+function util.read_full(sock, length)
+    local reply = ""
+    while #reply < length do
+        local ret，err = sock:recv(length - #reply)
+        if not ret then
+            return nil, err
+        end 
+
+        reply = reply .. ret
+    end 
+
+    return reply
+end
+
 return util
 
