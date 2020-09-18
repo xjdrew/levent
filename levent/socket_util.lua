@@ -45,7 +45,7 @@ end
 function util.read_full(sock, length)
     local reply = ""
     while #reply < length do
-        local ret，err = sock:recv(length - #reply)
+        local ret, err = sock:recv(length - #reply)
         if not ret then
             return nil, err
         end 
