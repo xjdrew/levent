@@ -17,7 +17,7 @@ function request.new(method, url, data, headers)
         return nil, "no host given"
     end
 
-    assert(parsed.schema:upper() == config.HTTP_SCHEMA, "only support http protocal")
+    assert(config.VALID_SCHEMA[parsed.schema:lower()], "not supported protocal type:" .. parsed.schema)
 
     local obj = {}
     obj.host = parsed.host
@@ -115,4 +115,3 @@ function request:pack()
 end
 
 return request
-

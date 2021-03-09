@@ -21,5 +21,24 @@ config.HTTP_METHODS = {
     -- CONNECT = "CONNECT",
 }
 
-return config
+config.VALID_SCHEMA = {
+    http    = true,
+    ws      = true,
+}
 
+config.WebSocket = {
+    VERSION = 13,
+    GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11",
+    CODES = {
+        [1000] = "normal closure",
+        NORMAL_CLOSURE = 1000,
+
+        [1001] = "going away",
+        GOING_AWAY = 1001,
+
+        [1002] = "protocol error",
+        PROTOCOL_ERROR = 1002,
+    }
+}
+
+return config
