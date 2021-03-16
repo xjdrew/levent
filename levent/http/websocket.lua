@@ -172,7 +172,7 @@ local function run(self)
         local fin, opcode, payload = read(conn)
         if opcode == CLOSE then
             try_handle(self, "on_close", decode_close_msg(payload))
-            self:close(codes.GOING_AWAY)
+            self:close(codes.CLOSE_GOING_AWAY)
         elseif opcode == PING then
             try_handle(self, "on_ping", payload)
             self:pong(payload)
@@ -181,11 +181,11 @@ local function run(self)
         else
             if opcode == CONTINUATION then
                 if not first_opcode then
-                    return self:error(codes.PROTOCOL_ERROR)
+                    return self:error(codes.CLOSE_PROTOCOL_ERROR)
                 end
             else
                 if first_opcode then
-                    return self:error(codes.PROTOCOL_ERROR)
+                    return self:error(codes.CLOSE_PROTOCOL_ERROR)
                 end
                 first_opcode = opcode
                 n = 0
@@ -218,7 +218,7 @@ function ws:binary(binstr)
 end
 
 function ws:close(code, reason)
-    code = code or codes.NORMAL_CLOSURE
+    code = code or codes.CLOSE_NORMAL
     local close_msg = encode_close_msg(code, reason)
     self:send(CLOSE, close_msg)
     self.conn:close()

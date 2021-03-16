@@ -30,14 +30,10 @@ config.WebSocket = {
     VERSION = 13,
     GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11",
     CODES = {
-        [1000] = "normal closure",
-        NORMAL_CLOSURE = 1000,
-
-        [1001] = "going away",
-        GOING_AWAY = 1001,
-
-        [1002] = "protocol error",
-        PROTOCOL_ERROR = 1002,
+        CLOSE_NORMAL = 1000,
+        CLOSE_GOING_AWAY = 1001,
+        CLOSE_PROTOCOL_ERROR = 1002,
+        CLOSE_UNSUPPORTED = 1003,
     }
 }
 
