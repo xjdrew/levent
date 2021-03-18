@@ -21,5 +21,20 @@ config.HTTP_METHODS = {
     -- CONNECT = "CONNECT",
 }
 
-return config
+config.VALID_SCHEMA = {
+    http    = true,
+    ws      = true,
+}
 
+config.WebSocket = {
+    VERSION = 13,
+    GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11",
+    CODES = {
+        CLOSE_NORMAL = 1000,
+        CLOSE_GOING_AWAY = 1001,
+        CLOSE_PROTOCOL_ERROR = 1002,
+        CLOSE_UNSUPPORTED = 1003,
+    }
+}
+
+return config
