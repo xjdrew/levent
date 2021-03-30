@@ -59,7 +59,7 @@ local function push_string(t, s, n)
     if n < MAX_BUFFER_LENGTH then
         n = n + 1
     else
-        t[1] = tconcat(t, 1, n)
+        t[1] = tconcat(t, "", 1, n)
         n = 2
     end
     t[n] = s
@@ -87,7 +87,7 @@ local function get_payload(conn, length)
         if length > 0 then
             n = push_string(payload_buffer, util.read_full(conn, length), n)
         end
-        return tconcat(payload_buffer, 1, n)
+        return tconcat(payload_buffer, "", 1, n)
     end
     return util.read_full(conn, length)
 end
@@ -192,7 +192,7 @@ local function run(self)
             end
             n = push_string(t, payload, n)
             if fin then
-                local message = tconcat(t, 1, n)
+                local message = tconcat(t, "", 1, n)
                 try_handle(self, "on_message", first_opcode, message)
                 first_opcode = nil
             end
