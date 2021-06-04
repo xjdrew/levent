@@ -272,8 +272,7 @@ _sock_connect(lua_State *L) {
 
     err = _getsockaddrarg(sock, host, port, &res);
     if(err != 0) {
-        lua_pushinteger(L, err);
-        return 1;
+        return _push_result(L, err);
     }
 
     err = connect(sock->fd, res->ai_addr, res->ai_addrlen);
@@ -418,8 +417,7 @@ _sock_bind(lua_State *L) {
 
     err = _getsockaddrarg(sock, host, port, &res);
     if(err != 0) {
-        lua_pushinteger(L, err);
-        return 1;
+        return _push_result(L, err);
     }
 
     err = bind(sock->fd, res->ai_addr, res->ai_addrlen);
