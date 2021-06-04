@@ -3,11 +3,14 @@ local socket = require "levent.socket"
 local timeout = require "levent.timeout"
 
 local test_data = "hello"
-function client()
+function client(host)
     local sock, errcode = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     assert(sock, errcode)
     print("begin connect:", sock:fileno())
-    assert(sock:connect("220.181.57.216", 8859))
+    local ok, exception = sock:connect(host, 8859)
+    if not ok then
+        error("connect failed:" .. exception)
+    end
     print("connect succeed")
     sock:sendall(test_data)
     sock:close()
@@ -28,7 +31,8 @@ function start()
 
     sock:listen()
     sock:set_timeout(10)
-    levent.spawn(client)
+    levent.spawn(client, "127.0.0.1")
+    levent.spawn(client, "localhost")
     print("begin accept:", sock:fileno())
     local csock, err = sock:accept()
     assert(csock, err)
