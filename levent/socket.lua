@@ -11,7 +11,7 @@ local class   = require "levent.class"
 local timeout = require "levent.timeout"
 
 local closed_socket = setmetatable({}, {__index = function(t, key)
-    if key == "send" or key == "recv" or key == "recvex" or key=="sendto" or key == "recvfrom" or key == "accept" then
+    if key == "send" or key == "recv" or key=="sendto" or key == "recvfrom" or key == "accept" then
         return function(...)
             return nil, errno.EBADF
         end
