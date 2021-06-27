@@ -1,0 +1,3 @@
+[submodule "deps/effil"]
+	path = deps/effil
+	url = https://github.com/effil/effil.git
