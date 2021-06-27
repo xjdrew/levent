@@ -30,6 +30,7 @@ Need cmake 2.8 or newer.
 
 Modify cmake.config properly and then run:
 ```
+git submodule update --init --recursive
 cmake .
 make
 ```
@@ -71,6 +72,8 @@ end
 levent.start(main)
 SCRIPT
 ```
+
+for multi-thread see `tests/test_socket_thread.lua`.
 
 running tests
 -------------

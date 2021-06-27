@@ -3,8 +3,8 @@
 -- date: 2014-08-08
 --]]
 
+local levent  = require "levent.levent"
 local class   = require "levent.class"
-local hub     = require "levent.hub"
 local timeout = require "levent.timeout"
 local lock    = require "levent.lock"
 
@@ -73,6 +73,7 @@ function Queue:__len()
 end
 
 function Queue:_get()
+    local hub = levent.get_hub()
     assert(self.length > 0)
     local item = table.remove(self.items, 1)
     self.length = self.length - 1
@@ -84,6 +85,7 @@ function Queue:_get()
 end
 
 function Queue:_put(item)
+    local hub = levent.get_hub()
     self.length = self.length + 1
     self.items[self.length] = item
     self.cond:clear()
@@ -98,6 +100,7 @@ function Queue:put(item, sec)
         self:_put(item)
         return
     end
+    local hub = levent.get_hub()
     local waiter = hub:waiter()
     self.putters[waiter] = true
 
@@ -115,6 +118,7 @@ function Queue:get(sec)
     if self.length > 0 then
         return self:_get()
     end
+    local hub = levent.get_hub()
     local waiter = hub:waiter()
     self.getters[waiter] = true
 

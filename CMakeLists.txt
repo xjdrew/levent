@@ -1,5 +1,6 @@
 cmake_minimum_required (VERSION 2.8)
 project(Levent)
+add_subdirectory(deps/effil)
 
 set(levent_cmake "config.cmake")
 if (EXISTS $ENV{LEVENT_CMAKE})

@@ -1,4 +1,4 @@
-local hub        = require "levent.hub"
+local levent     = require "levent.levent"
 local class      = require "levent.class"
 local exceptions = require "levent.exceptions"
 
@@ -9,10 +9,12 @@ function Timeout:_init(seconds)
     if not self.seconds or self.seconds <= 0 then
         return
     end
+    local hub = levent.get_hub()
     self.timer = hub.loop:timer(self.seconds)
 end
 
 function Timeout:start()
+    local hub = levent.get_hub()
     if self.timer then
         local co = coroutine.running()
         self.timer:start(hub.throw, hub, co, self)

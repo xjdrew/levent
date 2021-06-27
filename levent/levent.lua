@@ -2,7 +2,9 @@
 -- author: xjdrew
 -- date: 2014-07-17
 --]]
-local hub        = require "levent.hub"
+local assert     = assert
+
+local hub_class  = require "levent.hub"
 local coroutines = require "levent.coroutines"
 local exceptions = require "levent.exceptions"
 
@@ -11,6 +13,8 @@ local kill_error = exceptions.KillError.new()
 local levent = {}
 
 levent.kill_error = kill_error
+
+local hub = false
 
 function levent.now()
     return hub.loop:now()
@@ -59,6 +63,15 @@ function levent.kill(co)
 end
 
 function levent.start(f, ...)
+    assert(hub == false)
+    hub = hub_class.new()
+    levent.spawn(f, ...)
+    hub:run()
+end
+
+function levent.start_in_thread(f, ...)
+    assert(hub == false)
+    hub = hub_class.new(true)
     levent.spawn(f, ...)
     hub:run()
 end
