@@ -6,12 +6,12 @@
 local c       = require "levent.socket.c"
 local errno   = require "levent.errno.c"
 
+local levent  = require "levent.levent"
 local class   = require "levent.class"
-local hub     = require "levent.hub"
 local timeout = require "levent.timeout"
 
 local closed_socket = setmetatable({}, {__index = function(t, key)
-    if key == "send" or key == "recv" or key=="sendto" or key == "recvfrom" or key == "accept" then
+    if key == "send" or key == "recv" or key == "recvex" or key=="sendto" or key == "recvfrom" or key == "accept" then
         return function(...)
             return nil, errno.EBADF
         end
@@ -24,6 +24,7 @@ local function _wait(watcher, sec)
         t = timeout.start_new(sec)
     end
 
+    local hub = levent.get_hub()
     local ok, excepiton = xpcall(hub.wait, debug.traceback, hub, watcher)
     if not ok then
         print(ok, excepiton)
@@ -40,6 +41,7 @@ function Socket:_init(cobj)
     assert(type(cobj.fileno) == "function", cobj)
     self.cobj = cobj
     self.cobj:setblocking(false)
+    local hub = levent.get_hub()
     local loop = hub.loop
     self._read_event = loop:io(self.cobj:fileno(), loop.EV_READ)
     self._write_event = loop:io(self.cobj:fileno(), loop.EV_WRITE)
@@ -138,7 +140,30 @@ end
 
 -- args: len
 function Socket:recv(len)
-    return self:_recv(self.cobj.recv, len) 
+    local msg
+    local cobj = self.cobj
+    while true do
+        msg = cobj:recv_pop(len)
+        if msg then
+            return msg
+        end
+        local total, err = cobj:recv_push()
+        if total == 0 then
+            return ""
+        end
+        if total and total >= len then
+            return cobj:recv_pop(len)
+        end
+
+        if not total and not self:_need_block(err) then
+            return nil, err
+        end
+
+        local ok, exception = _wait(self._read_event, self.timeout)
+        if not ok then
+            return nil, exception
+        end
+    end
 end
 
 function Socket:_send(func, ...)
@@ -225,6 +250,7 @@ function Socket:setsockopt(level, optname, value)
 end
 
 function Socket:close()
+    local hub = levent.get_hub()
     if self.cobj ~= closed_socket then
         hub:cancel_wait(self._read_event)
         hub:cancel_wait(self._write_event)

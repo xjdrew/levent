@@ -20,6 +20,8 @@ Module interface:
 */
 #include <string.h>
 #include <errno.h>
+#include <stdlib.h>
+#include <assert.h>
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -50,6 +52,13 @@ Module interface:
 #endif
 */
 
+typedef struct _sock_buffer_node_t {
+    int size;
+    char *msg;
+    struct _sock_buffer_node_t *next;
+    struct _sock_buffer_node_t *next_pool;
+} sock_buffer_node_t;
+
 typedef struct _sock_t {
     int fd;
     int family;
@@ -59,6 +68,13 @@ typedef struct _sock_t {
     // default: libev suppose you input operating-system file handle on windows
     int handle;
 #endif
+
+    int total_bytes;
+    int skip_bytes;
+    sock_buffer_node_t *buffer_head;
+    sock_buffer_node_t *buffer_tail;
+    sock_buffer_node_t *buffer_free_list;
+    sock_buffer_node_t *buffer_pool;
 } socket_t;
 
 /* 
@@ -68,6 +84,54 @@ INLINE static socket_t*
 _getsock(lua_State *L, int index) {
     socket_t* sock = (socket_t*)luaL_checkudata(L, index, SOCKET_METATABLE);
     return sock;
+}
+
+static sock_buffer_node_t*
+_alloc_free_buffer_nodes(socket_t *sock, int count) {
+    sock_buffer_node_t *ptr = malloc(count * sizeof(sock_buffer_node_t));
+    for (int i = 0; i < count - 1; i++) {
+        ptr[i].size = 0;
+        ptr[i].msg = NULL;
+        ptr[i].next = &ptr[i + 1];
+        ptr[i].next_pool = NULL;
+    }
+    ptr[count - 1].size = 0;
+    ptr[count - 1].msg = NULL;
+    ptr[count - 1].next = NULL;
+    ptr[count - 1].next_pool = NULL;
+
+    ptr->next_pool = sock->buffer_pool;
+    sock->buffer_pool = ptr;
+    return ptr;
+}
+
+static sock_buffer_node_t*
+_find_free_buffer_node(socket_t *sock) {
+    if (sock->buffer_free_list == NULL) {
+        sock->buffer_free_list = _alloc_free_buffer_nodes(sock, 32);
+    }
+
+    sock_buffer_node_t *node = sock->buffer_free_list;
+    sock->buffer_free_list = node->next;
+    node->next = NULL;
+    return node;
+}
+
+static void
+_recycle_head_buffer_node(socket_t *sock) {
+    sock_buffer_node_t *node = sock->buffer_head;
+    assert(node != NULL);
+
+    sock->skip_bytes = 0;
+    sock->buffer_head = node->next;
+    if (sock->buffer_head == NULL)
+        sock->buffer_tail = NULL;
+
+    node->size = 0;
+    free(node->msg);
+    node->msg = NULL;
+    node->next = sock->buffer_free_list;
+    sock->buffer_free_list = node;
 }
 
 INLINE static void
@@ -88,6 +152,15 @@ _setsock(lua_State *L, int fd, int family, int type, int protocol) {
 #ifdef _WIN32
     nsock->handle = _open_osfhandle(fd, 0);
 #endif
+
+    nsock->total_bytes = 0;
+    nsock->skip_bytes = 0;
+    nsock->buffer_head = NULL;
+    nsock->buffer_tail = NULL;
+    nsock->buffer_free_list = NULL;
+    nsock->buffer_pool = NULL;
+    
+    nsock->buffer_free_list = _alloc_free_buffer_nodes(nsock, 32);
 }
 
 static const char*
@@ -304,6 +377,105 @@ _sock_recv(lua_State *L) {
         return 2;
     }
     lua_pushlstring(L, buf, nread);
+    return 1;
+}
+
+static int
+_sock_recv_push(lua_State *L) {
+    socket_t *sock = _getsock(L, 1);
+    const int count = 128 * 1024;
+	int nread;
+
+#ifdef _WIN32
+	char buf[count];
+#else
+    static __thread char buf[128 * 1024];
+#endif
+
+    nread = recv(sock->fd, buf, count, 0);
+    if(nread < 0) {
+        lua_pushnil(L);
+        lua_pushinteger(L, errno);
+        return 2;
+    }
+
+    if (nread == 0) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+
+    char *msg = malloc(nread);
+    memcpy(msg, buf, nread);
+
+    sock_buffer_node_t *node = _find_free_buffer_node(sock);
+    node->msg = msg;
+    node->size = nread;
+
+    if (sock->buffer_head == NULL) {
+        assert(sock->buffer_tail == NULL);
+        sock->buffer_head = sock->buffer_tail = node;
+    } else {
+        sock->buffer_tail->next = node;
+        sock->buffer_tail = node;
+    }
+
+    sock->total_bytes += nread;
+    lua_pushinteger(L, sock->total_bytes);
+    return 1;
+}
+
+static int
+_sock_recv_pop(lua_State *L) {
+    socket_t *sock = _getsock(L, 1);
+    int len = luaL_checkinteger(L, 2);
+
+    if (len > sock->total_bytes || len <= 0) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    sock->total_bytes -= len;
+
+    sock_buffer_node_t *node = sock->buffer_head;
+    if (len < node->size - sock->skip_bytes) {
+        lua_pushlstring(L, node->msg + sock->skip_bytes, len);
+        sock->skip_bytes += len;
+        return 1;
+    } else if (len == node->size - sock->skip_bytes) {
+        lua_pushlstring(L, node->msg + sock->skip_bytes, len);
+        _recycle_head_buffer_node(sock);
+        return 1;
+    }
+
+    luaL_Buffer b;
+    luaL_buffinit(L, &b);
+
+    for (;;) {
+        node = sock->buffer_head;
+        if (node == NULL)
+            break;
+        assert(sock->skip_bytes < node->size);
+
+        int left = node->size - sock->skip_bytes;
+        if (len < left) {
+            luaL_addlstring(&b, node->msg + sock->skip_bytes, len);
+            sock->skip_bytes += len;
+            len = 0;
+            break;
+        } else if (len == left) {
+            luaL_addlstring(&b, node->msg + sock->skip_bytes, len);
+            len = 0;
+            _recycle_head_buffer_node(sock);
+            break;
+        } else {
+            luaL_addlstring(&b, node->msg + sock->skip_bytes, left);
+            len -= left;
+            _recycle_head_buffer_node(sock);
+        }
+    }
+
+    assert(len == 0);
+    luaL_pushresult(&b);
     return 1;
 }
 
@@ -583,6 +755,33 @@ _sock_close(lua_State *L) {
         sock->fd = -1;
         close(fd);
     }
+
+    if (fd == -1 )
+        return 0;
+
+    sock->total_bytes = 0;
+    sock->skip_bytes = 0;
+    sock_buffer_node_t *node = sock->buffer_head;
+    sock_buffer_node_t *tmp;
+    while (node) {
+        tmp = node;
+        node = node->next;
+        if (tmp->msg)
+            free(tmp->msg);
+        tmp->msg = NULL;
+    }
+    sock->buffer_head = sock->buffer_tail = NULL;
+
+    sock->buffer_free_list = NULL;
+
+    sock_buffer_node_t *pool = sock->buffer_pool;
+    while (pool) {
+        tmp = pool;
+        pool = pool->next_pool;
+        free(tmp);
+    }
+    sock->buffer_pool = NULL;
+
     return 0;
 }
 
@@ -607,6 +806,8 @@ static const struct luaL_Reg socket_methods[] = {
     {"connect", _sock_connect},
 
     {"recv", _sock_recv},
+    {"recv_push", _sock_recv_push},
+    {"recv_pop", _sock_recv_pop},
     {"send", _sock_send},
 
     {"recvfrom", _sock_recvfrom},
