@@ -152,7 +152,7 @@ function mongo_collection:insert(doc)
 	local pack = driver.insert(0, self.full_name, bson_encode(doc))
 	-- todo: check send
 	-- flags support 1: ContinueOnError
-	sock:send(pack)
+	sock:sendall(pack)
 end
 
 function mongo_collection:batch_insert(docs)
@@ -165,7 +165,7 @@ function mongo_collection:batch_insert(docs)
 	local sock = self.connection.__sock
 	local pack = driver.insert(0, self.full_name, docs)
 	-- todo: check send
-	sock:send(pack)
+	sock:sendall(pack)
 end
 
 function mongo_collection:update(selector,update,upsert,multi)
@@ -173,7 +173,7 @@ function mongo_collection:update(selector,update,upsert,multi)
 	local sock = self.connection.__sock
 	local pack = driver.update(self.full_name, flags, bson_encode(selector), bson_encode(update))
 	-- todo: check send
-	sock:send(pack)
+	sock:sendall(pack)
 end
 
 function mongo_collection:delete(selector, single)
