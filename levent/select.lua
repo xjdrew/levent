@@ -2,9 +2,9 @@
 -- author: xjdrew
 -- date: 2014-08-13
 --]]
-local hub   = require "levent.hub"
-local class = require "levent.class"
-local lock  = require "levent.lock"
+local levent    = require "levent.levent"
+local class     = require "levent.class"
+local lock      = require "levent.lock"
 
 local function get_fileno(obj)
     local fileno
@@ -57,6 +57,7 @@ end
 
 local function select_(rlist, wlist, xlist, sec)
     local watchers = {}
+    local hub = levent.get_hub()
     local loop = hub.loop
     local MAXPRI = loop.EV_MAXPRI
     local result = SelectResult.new()

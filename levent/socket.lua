@@ -6,8 +6,8 @@
 local c       = require "levent.socket.c"
 local errno   = require "levent.errno.c"
 
+local levent  = require "levent.levent"
 local class   = require "levent.class"
-local hub     = require "levent.hub"
 local timeout = require "levent.timeout"
 
 local closed_socket = setmetatable({}, {__index = function(t, key)
@@ -24,6 +24,7 @@ local function _wait(watcher, sec)
         t = timeout.start_new(sec)
     end
 
+    local hub = levent.get_hub()
     local ok, excepiton = xpcall(hub.wait, debug.traceback, hub, watcher)
     if not ok then
         print(ok, excepiton)
@@ -40,6 +41,7 @@ function Socket:_init(cobj)
     assert(type(cobj.fileno) == "function", cobj)
     self.cobj = cobj
     self.cobj:setblocking(false)
+    local hub = levent.get_hub()
     local loop = hub.loop
     self._read_event = loop:io(self.cobj:fileno(), loop.EV_READ)
     self._write_event = loop:io(self.cobj:fileno(), loop.EV_WRITE)
@@ -138,7 +140,7 @@ end
 
 -- args: len
 function Socket:recv(len)
-    return self:_recv(self.cobj.recv, len) 
+    return self:_recv(self.cobj.recv, len)
 end
 
 function Socket:_send(func, ...)
@@ -225,6 +227,7 @@ function Socket:setsockopt(level, optname, value)
 end
 
 function Socket:close()
+    local hub = levent.get_hub()
     if self.cobj ~= closed_socket then
         hub:cancel_wait(self._read_event)
         hub:cancel_wait(self._write_event)

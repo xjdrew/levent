@@ -87,8 +87,8 @@ function Watcher:__gc()
 end
 
 local Loop = class("Loop")
-function Loop:_init()
-    self.cobj = ev.default_loop()
+function Loop:_init(nt)
+    self.cobj = nt and ev.new_loop() or ev.default_loop()
     self.watchers = setmetatable({}, {__mode="v"})
 
     -- register prepare
@@ -172,8 +172,10 @@ function Loop:handle_error(watcher, msg)
 end
 
 local loop = {}
-function loop.new()
-    local obj = Loop.new()
+
+-- nt: use new thread
+function loop.new(nt)
+    local obj = Loop.new(nt)
     for k,v in pairs(ev) do
         if type(v) ~= "function" then
             obj[k] = v

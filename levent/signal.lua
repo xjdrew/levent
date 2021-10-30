@@ -3,12 +3,13 @@
 -- date: 2014-08-14
 --]]
 
-local hub   = require "levent.hub"
-local class = require "levent.class"
+local levent    = require "levent.levent"
+local class     = require "levent.class"
 
 local Signal = class("Signal")
 
 function Signal:_init(signum, handler, ...)
+    local hub = levent.get_hub()
     self.watcher = hub.loop:signal(signum)
     self.watcher:start(handler, ...)
 end

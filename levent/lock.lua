@@ -3,8 +3,8 @@
 -- date: 2014-07-31
 --]]
 
+local levent     = require "levent.levent"
 local class      = require "levent.class"
-local hub        = require "levent.hub"
 local timeout    = require "levent.timeout"
 local exceptions = require "levent.exceptions"
 
@@ -22,6 +22,7 @@ function Event:_init()
 end
 
 function Event:set()
+    local hub = levent.get_hub()
     self.flag = true
     for k,v in pairs(self.links) do
         self.todo[k] = v
@@ -42,6 +43,7 @@ function Event:wait(sec)
         return self.flag
     end
 
+    local hub = levent.get_hub()
     local waiter = hub:waiter()
     self.links[waiter] = true
 
@@ -78,6 +80,7 @@ function AsyncResult:_init()
 end
 
 function AsyncResult:_set(val, exception)
+    local hub = levent.get_hub()
     assert(self.exception == false, "repeated set result")
     self.value = val
     self.exception = exception
@@ -94,6 +97,7 @@ function AsyncResult:set_exception(exception)
 end
 
 function AsyncResult:get(sec)
+    local hub = levent.get_hub()
     if self.exception == false then
         local t = timeout.start_new(sec)
         local waiter = hub:waiter()
@@ -137,6 +141,7 @@ function Semaphore:locked()
 end
 
 function Semaphore:release()
+    local hub = levent.get_hub()
     self.counter = self.counter + 1
     if not self.notifier and next(self.links) then
         self.notifier = true
@@ -149,6 +154,7 @@ function Semaphore:wait(sec)
         return true
     end
     
+    local hub = levent.get_hub()
     local waiter = hub:waiter()
     self.links[waiter] = true
 

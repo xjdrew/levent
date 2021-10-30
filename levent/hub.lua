@@ -10,11 +10,11 @@ local Hub = class("Hub")
 
 local cancel_wait_error = exceptions.CancelWaitError.new()
 
-function Hub:_init()
+function Hub:_init(nt)
     local co, main = coroutine.running()
     assert(main, "must in main coroutine")
     self.co = co
-    self.loop = loop.new()
+    self.loop = loop.new(nt)
     self.waiters = setmetatable({}, {__mode="v"})
 end
 
@@ -130,6 +130,5 @@ function Waiter:get()
     end
 end
 
-local hub = Hub.new()
-return hub
+return Hub
 
