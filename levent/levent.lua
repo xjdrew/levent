@@ -14,7 +14,7 @@ local levent = {}
 
 levent.kill_error = kill_error
 
-local hub = false
+local hub = hub_class.new()
 
 function levent.now()
     return hub.loop:now()
@@ -62,18 +62,7 @@ function levent.kill(co)
     hub.loop:run_callback(hub.throw, hub, co, kill_error)
 end
 
--- use default event loop
 function levent.start(f, ...)
-    assert(hub == false)
-    hub = hub_class.new()
-    levent.spawn(f, ...)
-    hub:run()
-end
-
--- create new event loop
-function levent.start_new_loop(f, ...)
-    assert(hub == false)
-    hub = hub_class.new(true)
     levent.spawn(f, ...)
     hub:run()
 end
