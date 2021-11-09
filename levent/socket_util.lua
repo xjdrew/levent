@@ -49,6 +49,9 @@ function util.read_full(sock, length)
         if not ret then
             return nil, err
         end 
+        if #ret == 0 then
+            return reply, true -- EOF
+        end
 
         reply = reply .. ret
     end 
