@@ -88,7 +88,7 @@ end
 
 local Loop = class("Loop")
 function Loop:_init()
-    self.cobj = ev.default_loop()
+    self.cobj = ev.new_loop()
     self.watchers = setmetatable({}, {__mode="v"})
 
     -- register prepare
