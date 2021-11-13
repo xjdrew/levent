@@ -19,7 +19,8 @@ function t2()
     print(value)
 end
 
-levent.spawn(t1)
-levent.spawn(t2)
-levent.wait()
+levent.start(function()
+    levent.spawn(t1)
+    levent.spawn(t2)
+end)
 
