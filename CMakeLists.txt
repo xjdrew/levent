@@ -22,10 +22,15 @@ endif()
 
 add_definitions(-DHTTP_PARSER_STRICT=0)
 if(WIN32)
-	set(suffix ".dll")
+    set(suffix ".dll")
     add_definitions(-DLUA_BUILD_AS_DLL -DLUA_LIB -DHTTP_PARSER_STRICT=0)
 else()
-	set(suffix ".so")
+    set(suffix ".so")
+endif()
+
+if(APPLE)
+    include_directories(${LUA_INCLUDE_DIR} /usr/local/opt/openssl/include)
+    set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH};/usr/local/opt/openssl/lib)
 endif()
 
 macro (add_lua_library lname)
