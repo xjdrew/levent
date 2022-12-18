@@ -264,7 +264,7 @@ function ws.client(url)
         conn = cli.conn,
         mask = true,
     }, ws)
-    levent.spawn(pcall, run, obj)
+    levent.spawn(run, obj)
     return obj
 end
 
