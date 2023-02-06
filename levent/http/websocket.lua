@@ -169,6 +169,9 @@ local function run(self)
     local conn = self.conn
     local t, n, first_opcode = {}, 0
     while true do
+        if self.conn == nil then
+            return
+        end
         local fin, opcode, payload = read(conn)
         if opcode == CLOSE then
             try_handle(self, "on_close", decode_close_msg(payload))
