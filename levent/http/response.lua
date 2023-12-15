@@ -5,6 +5,13 @@ local response = {}
 response.__index = response
 
 function response.new(parsed)
+    local headers = parsed.headers
+    local cheaders = {}
+    parsed.headers = cheaders
+    for f, v in pairs(headers) do
+        f = util.canonical_header_key(f)
+        cheaders[f] = v
+    end
     return setmetatable(parsed, response)
 end
 

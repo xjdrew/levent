@@ -261,7 +261,7 @@ function ws.client(url)
     local response_headers = response:get_headers()
     assert(response_headers.Connection and response_headers.Connection:lower() == "upgrade", response_headers.Connection)
     assert(response_headers.Upgrade and response_headers.Upgrade:lower() == "websocket", response_headers.Upgrade)
-    local accept = response_headers["Sec-WebSocket-Accept"]
+    local accept = response_headers["Sec-Websocket-Accept"]
     assert(accept and accept == crypto.base64(get_sha1(key, config.WebSocket.GUID)))
     local obj = setmetatable({
         conn = cli.conn,
