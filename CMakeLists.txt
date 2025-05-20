@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 2.8.12)
+cmake_minimum_required (VERSION 2.8.12...3.15.0)
 project(Levent)
 
 set(levent_cmake "config.cmake")
