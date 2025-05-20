@@ -29,8 +29,30 @@ else()
 endif()
 
 if(APPLE)
-    include_directories(${LUA_INCLUDE_DIR} /usr/local/opt/openssl/include)
-    set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH};/usr/local/opt/openssl/lib)
+    set(OPENSSL_INCLUDE "/usr/local/opt/openssl/include")
+    set(OPENSSL_LIB "/usr/local/opt/openssl/lib")
+    execute_process(
+            COMMAND which brew
+            OUTPUT_VARIABLE BREW_PATH
+            ERROR_QUIET
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    if(BREW_PATH)
+        # 如果 brew 存在，尝试用 brew 查找 openssl，如果存在则修正默认路径
+        execute_process(
+                COMMAND brew --prefix openssl
+                OUTPUT_VARIABLE OPENSSL_PREFIX
+                ERROR_QUIET
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+        if(OPENSSL_PREFIX)
+            set(OPENSSL_INCLUDE ${OPENSSL_PREFIX}/include)
+            set(OPENSSL_LIB ${OPENSSL_PREFIX}/lib)
+        endif()
+    endif()
+
+    include_directories(${LUA_INCLUDE_DIR} ${OPENSSL_INCLUDE})
+    set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH};${OPENSSL_LIB})
 endif()
 
 macro (add_lua_library lname)
