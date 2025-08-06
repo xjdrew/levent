@@ -3,12 +3,12 @@ local c = require "levent.http.c"
 local util = {}
 
 function util.read_message(conn, parser, left)
-    local msg = {}
+    local msg = nil
     local raw = {}
-    while not msg.complete do
+    repeat
         local parsed, s, err
         if left then
-            s = left
+            s, left = left, nil
         else
             s, err = conn:recv(4096)
             if not s then
@@ -16,14 +16,15 @@ function util.read_message(conn, parser, left)
             end
         end
 
+        if #s == 0 then
+            break
+        end
+
+        msg = msg or {}
+
         parsed, err = parser:execute(s, nil, msg)
         if err then
             return nil, c.http_errno_name(err)
-        end
-
-        -- socket closed by peer
-        if #s == 0 then
-            break
         end
 
         if parsed < #s then
@@ -32,7 +33,7 @@ function util.read_message(conn, parser, left)
         else
             table.insert(raw, s)
         end
-    end
+    until msg.complete
 
     -- return raw msg at last
     return msg, left, table.concat(raw)
@@ -43,14 +44,14 @@ function util.canonical_header_key(key)
 end
 
 local function escape(s)
-    return s:gsub("[^a-zA-Z0-9-_.~]", function(c) 
-        return string.format("%%%02x",string.byte(c)) 
+    return s:gsub("[^a-zA-Z0-9-_.~]", function(char)
+        return string.format("%%%02x",string.byte(char))
     end)
 end
 
 local function unescape(s)
-    return s:gsub("%%%x%x", function(ss) 
-        return string.char(tonumber("0x" .. ss:sub(2))) 
+    return s:gsub("%%%x%x", function(ss)
+        return string.char(tonumber("0x" .. ss:sub(2)))
     end)
 end
 
@@ -84,4 +85,3 @@ end
 util.escape = escape
 util.unescape = unescape
 return util
-
