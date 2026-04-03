@@ -9,8 +9,8 @@ function response.new(parsed)
     local cheaders = {}
     parsed.headers = cheaders
     for f, v in pairs(headers) do
-        f = util.canonical_header_key(f)
-        cheaders[f] = v
+        local cf = util.canonical_header_key(f)
+        cheaders[cf] = v
     end
     return setmetatable(parsed, response)
 end
